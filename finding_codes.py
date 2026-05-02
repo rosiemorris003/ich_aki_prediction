@@ -1,0 +1,57 @@
+import sqlite3
+import pandas as pd
+conn = sqlite3.connect(r'C:\Users\rosie\Documents\dissertation_start\ich_star.db')
+icd_codes = pd.read_csv(r'C:\Users\rosie\Documents\dissertation_start\d_icd_diagnoses.csv')
+diagnoses = pd.read_csv(r'C:\Users\rosie\Documents\dissertation_start\diagnoses_icd.csv')
+lab_items = pd.read_csv(r'C:\Users\rosie\Documents\dissertation_start\d_labitems.csv')
+chart_items = pd.read_csv(r'C:\Users\rosie\Documents\dissertation_start\d_items.csv')
+patients = pd.read_csv(r'patients.csv.gz',compression = 'gzip')
+patients = patients[['subject_id','anchor_age','gender']]
+patients.to_sql('patients',conn, if_exists='replace',index=False)
+icu_stays = pd.read_csv(r'C:\Users\rosie\Documents\dissertation_start\icustays.csv.gz',compression ='gzip' )
+icu_stays = icu_stays[['subject_id','hadm_id','intime']]
+icu_stays['intime'] = pd.to_datetime(icu_stays['intime'])
+icu_stays.to_sql('icu_stays',conn,if_exists='replace',index=False)
+columns_chart = ['subject_id','hadm_id','stay_id','itemid','charttime','valuenum','valueuom']
+#chart_events = pd.read_csv(r'C:\Users\rosie\Documents\dissertation_start\chartevents.csv.gz',compression='gzip',usecols = columns_chart,chunksize = 100000,low_memory=False)
+#for chunk in chart_events:
+ #   chunk['subject_id'] = pd.to_numeric(chunk['subject_id'],errors = 'coerce')
+  #  chunk['hadm_id'] = pd.to_numeric(chunk['hadm_id'],errors = 'coerce')
+   # chunk['stay_id'] = pd.to_numeric(chunk['stay_id'],errors = 'coerce')
+    #chunk['itemid'] = pd.to_numeric(chunk['itemid'],errors = 'coerce')
+    #chunk['valuenum'] = pd.to_numeric(chunk['valuenum'],errors = 'coerce')
+    #chunk.to_sql('ChartEvents',conn,if_exists = 'append',index=False)
+
+
+#columns_lab= ['labevent_id','subject_id','hadm_id','specimen_id','itemid','charttime','value','valuenum','valueuom','ref_range_lower','ref_range_upper','flag','comments']
+#lab_events = pd.read_csv(r'labevents.csv.gz',compression = 'gzip', usecols = columns_lab, chunksize=100000,low_memory = False)
+#for chunk in lab_events:
+#    chunk['labevent_id'] = pd.to_numeric(chunk['labevent_id'],errors='coerce')
+ #   chunk['subject_id'] = pd.to_numeric(chunk['subject_id'],errors='coerce')
+  #  chunk['hadm_id'] = pd.to_numeric(chunk['hadm_id'],errors='coerce')
+   # chunk['specimen_id'] = pd.to_numeric(chunk['specimen_id'],errors='coerce')
+    #chunk['itemid'] = pd.to_numeric(chunk['itemid'],errors='coerce')
+    #chunk['valuenum'] = pd.to_numeric(chunk['valuenum'],errors='coerce')
+    #chunk['ref_range_lower'] = pd.to_numeric(chunk['ref_range_lower'],errors='coerce')
+    #chunk['ref_range_upper'] = pd.to_numeric(chunk['ref_range_upper'],errors='coerce')
+    #chunk.to_sql("LabEvents",conn,if_exists = 'append',index=False)
+print(icd_codes.columns)
+print(diagnoses.columns)
+print(lab_items.columns)
+print(chart_items.columns)
+chart_items = chart_items[['itemid', 'label', 'abbreviation', 'linksto', 'category', 'unitname','param_type', 'lownormalvalue', 'highnormalvalue']]
+icd_codes = icd_codes[['icd_code','icd_version','long_title']]
+diagnoses = diagnoses[['subject_id', 'hadm_id', 'seq_num', 'icd_code', 'icd_version']]
+lab_items = lab_items[['itemid', 'label', 'fluid', 'category']]
+icd_codes=icd_codes.drop_duplicates(subset=['icd_code','icd_version'])
+diagnoses = diagnoses.drop_duplicates(subset=['subject_id', 'hadm_id', 'seq_num'])
+lab_items = lab_items.drop_duplicates(['itemid'])
+icd_codes.to_sql('ICD_CODES',conn , if_exists = "append",index=False)
+diagnoses.to_sql('DIAGNOSES',conn, if_exists="append",index=False )
+lab_items.to_sql('LabItems',conn, if_exists = "append",index=False)
+chart_items.to_sql('ChartItems',conn,if_exists = "append",index=False)
+conn.commit()
+conn.close()
+
+
+
