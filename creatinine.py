@@ -1,12 +1,12 @@
 import sqlite3
 import pandas as pd
-conn = sqlite3.connect(r'C:\Users\rosie\Documents\dissertation_start\ich_star.db') 
+conn = sqlite3.connect(r'C:\Users\rosie\Documents\dissertation_start\dissertation_tables.db') 
 cursor = conn.cursor()
 creatinine = pd.read_sql_query("SELECT * FROM ICH_Creatinine",conn)
 
 print(creatinine.head())
 print(creatinine.shape)
-creatinine = creatinine[creatinine['itemid'].isin([50912, 51081])]
+creatinine = creatinine[creatinine['itemid'].isin([51081, 50912])]
 creatinine['charttime'] = pd.to_datetime(creatinine['charttime'])
 creatinine = creatinine.sort_values(['subject_id','hadm_id','charttime'])
 print(creatinine['valueuom'].value_counts(dropna=False))
