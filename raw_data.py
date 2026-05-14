@@ -18,29 +18,29 @@ icu_stays.to_sql('icu_stays',conn,if_exists='replace',index=False)
 #chart_events = pd.read_csv(r'C:\Users\rosie\Documents\dissertation_start\chartevents.csv.gz',compression='gzip',usecols = columns_chart,chunksize = 100000,low_memory=False)
 #for chunk in chart_events:
  #   chunk = chunk[chunk['itemid'].isin(chart_item_ids)]
-  #  chunk['subject_id'] = pd.to_numeric(chunk['subject_id'],errors = 'coerce') 
-   # chunk['hadm_id'] = pd.to_numeric(chunk['hadm_id'],errors = 'coerce')
-    #chunk['stay_id'] = pd.to_numeric(chunk['stay_id'],errors = 'coerce')
-    #chunk['itemid'] = pd.to_numeric(chunk['itemid'],errors = 'coerce')
-    #chunk['valuenum'] = pd.to_numeric(chunk['valuenum'],errors = 'coerce')
-    #chunk.to_sql('ChartEvents',conn,if_exists = 'append',index=False)
+ #   chunk['subject_id'] = pd.to_numeric(chunk['subject_id'],errors = 'coerce') 
+ #   chunk['hadm_id'] = pd.to_numeric(chunk['hadm_id'],errors = 'coerce')
+ #   chunk['stay_id'] = pd.to_numeric(chunk['stay_id'],errors = 'coerce')
+ #   chunk['itemid'] = pd.to_numeric(chunk['itemid'],errors = 'coerce')
+ #   chunk['valuenum'] = pd.to_numeric(chunk['valuenum'],errors = 'coerce')
+ #   chunk.to_sql('ChartEvents',conn,if_exists = 'append',index=False)
 
 
-#columns_lab= ['labevent_id','subject_id','hadm_id','specimen_id','itemid','charttime','value','valuenum','valueuom','ref_range_lower','ref_range_upper','flag','comments']
-#lab_events = pd.read_csv(r'labevents.csv.gz',compression = 'gzip', usecols = columns_lab, chunksize=100000,low_memory = False)
-#for chunk in lab_events:
- #   chunk = chunk[chunk['itemid'].isin(lab_items_ids)]
-  #  chunk['labevent_id'] = pd.to_numeric(chunk['labevent_id'],errors='coerce')
-  #  chunk['subject_id'] = pd.to_numeric(chunk['subject_id'],errors='coerce')
-  #  chunk['hadm_id'] = pd.to_numeric(chunk['hadm_id'],errors='coerce')
-  #  chunk['specimen_id'] = pd.to_numeric(chunk['specimen_id'],errors='coerce')
-  #  chunk['itemid'] = pd.to_numeric(chunk['itemid'],errors='coerce')
-  #  chunk['valuenum'] = pd.to_numeric(chunk['valuenum'],errors='coerce')
-  #  chunk['ref_range_lower'] = pd.to_numeric(chunk['ref_range_lower'],errors='coerce')
-   # chunk['ref_range_upper'] = pd.to_numeric(chunk['ref_range_upper'],errors='coerce')
-   # chunk.to_sql("LabEvents",conn,if_exists = 'append',index=False)
-#print(icd_codes.columns)
-#print(diagnoses.columns)
+columns_lab= ['labevent_id','subject_id','hadm_id','specimen_id','itemid','charttime','value','valuenum','valueuom','ref_range_lower','ref_range_upper','flag','comments']
+lab_events = pd.read_csv(r'labevents.csv.gz',compression = 'gzip', usecols = columns_lab, chunksize=100000,low_memory = False)
+for chunk in lab_events:
+    chunk = chunk[chunk['itemid'].isin(lab_items_ids)]
+    chunk['labevent_id'] = pd.to_numeric(chunk['labevent_id'],errors='coerce')
+    chunk['subject_id'] = pd.to_numeric(chunk['subject_id'],errors='coerce')
+    chunk['hadm_id'] = pd.to_numeric(chunk['hadm_id'],errors='coerce')
+    chunk['specimen_id'] = pd.to_numeric(chunk['specimen_id'],errors='coerce')
+    chunk['itemid'] = pd.to_numeric(chunk['itemid'],errors='coerce')
+    chunk['valuenum'] = pd.to_numeric(chunk['valuenum'],errors='coerce')
+    chunk['ref_range_lower'] = pd.to_numeric(chunk['ref_range_lower'],errors='coerce')
+    chunk['ref_range_upper'] = pd.to_numeric(chunk['ref_range_upper'],errors='coerce')
+    chunk.to_sql("LabEvents",conn,if_exists = 'append',index=False)
+print(icd_codes.columns)
+print(diagnoses.columns)
 print(lab_items.columns)
 print(chart_items.columns)
 chart_items = chart_items[['itemid', 'label', 'abbreviation', 'linksto', 'category', 'unitname','param_type', 'lownormalvalue', 'highnormalvalue']]

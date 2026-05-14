@@ -61,7 +61,7 @@ CREATE TABLE ChartEvents (
 CREATE TABLE LabEvents (
     labevent_id INTEGER NOT NULL PRIMARY KEY,
     subject_id INTEGER NOT NULL,
-    hadm_id INTEGER NOT NULL,
+    hadm_id INTEGER,
     specimen_id INTEGER,
     itemid INTEGER NOT NULL,
     charttime TEXT NOT NULL,
