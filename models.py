@@ -11,7 +11,6 @@ from lightgbm import LGBMClassifier
 from tabpfn import TabPFNClassifier
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
-from imblearn.over_sampling import ADASYN
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, precision_score, recall_score, average_precision_score, confusion_matrix
 
 
@@ -30,14 +29,8 @@ imputer = SimpleImputer(strategy = "median")
 X_train = pd.DataFrame(imputer.fit_transform(X_train),columns = X.columns)
 X_test = pd.DataFrame(imputer.transform(X_test),columns = X.columns)
 
-adasyn = ADASYN(random_state=42)
-X_train_adasyn, y_train_adasyn = adasyn.fit_resample(X_train, y_train)
-
-
 scaler = StandardScaler ()
 X_train_scaled = scaler.fit_transform(X_train)
-X_test_scaled = scaler.transform(X_test)
-X_train_adasyn_scaled = scaler.fit_transform(X_train_adasyn)
 X_test_scaled = scaler.transform(X_test)
 
 #Logistic regression code
@@ -57,25 +50,6 @@ tn, fp, fn, tp = confusion_matrix(y_test, y_pred_logistic ).ravel()
 specificity = tn / (tn + fp)
 print("Specificity:", specificity)
 
-#ADASYN for logistic regression
-logistic_adasyn = LogisticRegression(max_iter=1000)
-logistic_adasyn.fit(X_train_adasyn_scaled, y_train_adasyn)
-
-y_pred_logistic_adasyn = logistic_adasyn.predict(X_test_scaled)
-y_prob_logistic_adasyn = logistic_adasyn.predict_proba(X_test_scaled)[:, 1]
-
-print("Logistic Regression with ADASYN")
-print("Accuracy:", accuracy_score(y_test, y_pred_logistic_adasyn))
-print("F1 Score:", f1_score(y_test, y_pred_logistic_adasyn))
-print("ROC AUC:", roc_auc_score(y_test, y_prob_logistic_adasyn))
-print("Precision:", precision_score(y_test, y_pred_logistic_adasyn))
-print("Recall:", recall_score(y_test, y_pred_logistic_adasyn))
-print("PR-AUC:", average_precision_score(y_test, y_prob_logistic_adasyn))
-tn, fp, fn, tp = confusion_matrix(y_test, y_pred_logistic_adasyn).ravel()
-print("Specificity:", tn / (tn + fp))
-
-
-
 #XGBoost code now 
 xgb = XGBClassifier(random_state = 42, eval_metric = 'logloss')
 xgb.fit(X_train, y_train)
@@ -93,27 +67,6 @@ tn, fp, fn, tp = confusion_matrix(y_test, y_pred_xgb).ravel()
 specificity = tn/ (tn+fp)
 print("Specificity:",specificity)
 
-
-#testing ADASYN out with xgboost
-xgb_adasyn = XGBClassifier(random_state=42, eval_metric="logloss")
-xgb_adasyn.fit(X_train_adasyn, y_train_adasyn)
-
-y_pred_xgb_adasyn = xgb_adasyn.predict(X_test)
-y_prob_xgb_adasyn = xgb_adasyn.predict_proba(X_test)[:, 1]
-
-print("XGBoost with ADASYN")
-print("Accuracy:", accuracy_score(y_test, y_pred_xgb_adasyn))
-print("F1 Score:", f1_score(y_test, y_pred_xgb_adasyn))
-print("ROC AUC:", roc_auc_score(y_test, y_prob_xgb_adasyn))
-print("Precision:", precision_score(y_test, y_pred_xgb_adasyn))
-print("Recall:", recall_score(y_test, y_pred_xgb_adasyn))
-print("PR-AUC:", average_precision_score(y_test, y_prob_xgb_adasyn))
-
-tn, fp, fn, tp = confusion_matrix(y_test, y_pred_xgb_adasyn).ravel()
-specificity = tn / (tn + fp)
-print("Specificity:", specificity)
-
-
 #catboost
 cat = CatBoostClassifier(random_state = 42, verbose = 0)
 cat.fit(X_train, y_train)
@@ -129,24 +82,6 @@ print("PR-AUC:", average_precision_score(y_test,y_prob_cat))
 tn, fp, fn, tp = confusion_matrix(y_test, y_pred_cat).ravel()
 specificity = tn/ (tn+fp)
 print("Specificity:",specificity)
-
-
-#catboost with ADASYN 
-cat_adasyn = CatBoostClassifier(random_state=42, verbose=0)
-cat_adasyn.fit(X_train_adasyn, y_train_adasyn)
-
-y_pred_cat_adasyn = cat_adasyn.predict(X_test)
-y_prob_cat_adasyn = cat_adasyn.predict_proba(X_test)[:, 1]
-
-print("CatBoost with ADASYN")
-print("Accuracy:", accuracy_score(y_test, y_pred_cat_adasyn))
-print("F1 Score:", f1_score(y_test, y_pred_cat_adasyn))
-print("ROC AUC:", roc_auc_score(y_test, y_prob_cat_adasyn))
-print("Precision:", precision_score(y_test, y_pred_cat_adasyn))
-print("Recall:", recall_score(y_test, y_pred_cat_adasyn))
-print("PR-AUC:", average_precision_score(y_test, y_prob_cat_adasyn))
-tn, fp, fn, tp = confusion_matrix(y_test, y_pred_cat_adasyn).ravel()
-print("Specificity:", tn / (tn + fp))
 
 #lightgbm
 lgbm = LGBMClassifier(random_state = 42)
@@ -164,21 +99,6 @@ tn, fp, fn, tp = confusion_matrix(y_test, y_pred_lgbm).ravel()
 specificity = tn / (tn + fp)
 print("Specificity:", specificity)
 
-#lightgbm with ADASYN 
-lgbm_adasyn = LGBMClassifier(random_state=42)
-lgbm_adasyn.fit(X_train_adasyn, y_train_adasyn)
-y_pred_lgbm_adasyn = lgbm_adasyn.predict(X_test)
-y_prob_lgbm_adasyn = lgbm_adasyn.predict_proba(X_test)[:, 1]
-print("LightGBM with ADASYN")
-print("Accuracy:", accuracy_score(y_test, y_pred_lgbm_adasyn))
-print("F1 Score:", f1_score(y_test, y_pred_lgbm_adasyn))
-print("ROC AUC:", roc_auc_score(y_test, y_prob_lgbm_adasyn))
-print("Precision:", precision_score(y_test, y_pred_lgbm_adasyn))
-print("Recall:", recall_score(y_test, y_pred_lgbm_adasyn))
-print("PR-AUC:", average_precision_score(y_test, y_prob_lgbm_adasyn))
-tn, fp, fn, tp = confusion_matrix(y_test, y_pred_lgbm_adasyn).ravel()
-print("Specificity:", tn / (tn + fp))
-
 #tabpfn code
 tabpfn = TabPFNClassifier(random_state=42, ignore_pretraining_limits=True)
 tabpfn.fit(X_train,y_train)
@@ -195,18 +115,3 @@ tn, fp, fn, tp = confusion_matrix(y_test, y_pred_tabpfn).ravel()
 specificity = tn / (tn + fp)
 print("Specificity:", specificity)
 
-#tabpfn with ADASYN 
-tabpfn_adasyn = TabPFNClassifier(random_state=42, ignore_pretraining_limits=True)
-tabpfn_adasyn.fit(X_train_adasyn, y_train_adasyn)
-y_pred_tabpfn_adasyn = tabpfn_adasyn.predict(X_test)
-y_prob_tabpfn_adasyn = tabpfn_adasyn.predict_proba(X_test)[:, 1]
-
-print("TabPFN with ADASYN")
-print("Accuracy:", accuracy_score(y_test, y_pred_tabpfn_adasyn))
-print("F1 Score:", f1_score(y_test, y_pred_tabpfn_adasyn))
-print("ROC AUC:", roc_auc_score(y_test, y_prob_tabpfn_adasyn))
-print("Precision:", precision_score(y_test, y_pred_tabpfn_adasyn))
-print("Recall:", recall_score(y_test, y_pred_tabpfn_adasyn))
-print("PR-AUC:", average_precision_score(y_test, y_prob_tabpfn_adasyn))
-tn, fp, fn, tp = confusion_matrix(y_test, y_pred_tabpfn_adasyn).ravel()
-print("Specificity:", tn / (tn + fp))

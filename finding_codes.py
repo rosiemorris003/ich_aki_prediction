@@ -1,61 +1,36 @@
 import sqlite3
 import pandas as pd
-conn = sqlite3.connect(r'C:\Users\rosie\Documents\dissertation_start\dissertation_tables.db')
-icd_codes = pd.read_csv(r'C:\Users\rosie\Documents\dissertation_start\d_icd_diagnoses.csv')
-diagnoses = pd.read_csv(r'C:\Users\rosie\Documents\dissertation_start\diagnoses_icd.csv')
-lab_items = pd.read_csv(r'C:\Users\rosie\Documents\dissertation_start\d_labitems.csv')
-chart_items = pd.read_csv(r'C:\Users\rosie\Documents\dissertation_start\d_items.csv')
-lab_items_ids = [51081, 50912, 51265, 51222, 51221, 50971, 51301, 50983, 51279]
-chart_item_ids = [220045, 223761, 224639, 226512, 220179, 220180, 220739, 223900, 223901]
-patients = pd.read_csv(r'patients.csv.gz',compression = 'gzip')
-patients = patients[['subject_id','anchor_age','gender']]
-patients.to_sql('patients',conn, if_exists='replace',index=False)
-icu_stays = pd.read_csv(r'C:\Users\rosie\Documents\dissertation_start\icustays.csv.gz',compression ='gzip' )
-icu_stays = icu_stays[['subject_id','hadm_id','stay_id','intime','los']]
-icu_stays['intime'] = pd.to_datetime(icu_stays['intime'])
-icu_stays.to_sql('icu_stays',conn,if_exists='replace',index=False)
-#columns_chart = ['subject_id','hadm_id','stay_id','itemid','charttime','valuenum','valueuom']
-#chart_events = pd.read_csv(r'C:\Users\rosie\Documents\dissertation_start\chartevents.csv.gz',compression='gzip',usecols = columns_chart,chunksize = 100000,low_memory=False)
-#for chunk in chart_events:
- #   chunk = chunk[chunk['itemid'].isin(chart_item_ids)]
-  #  chunk['subject_id'] = pd.to_numeric(chunk['subject_id'],errors = 'coerce') 
-   # chunk['hadm_id'] = pd.to_numeric(chunk['hadm_id'],errors = 'coerce')
-    #chunk['stay_id'] = pd.to_numeric(chunk['stay_id'],errors = 'coerce')
-    #chunk['itemid'] = pd.to_numeric(chunk['itemid'],errors = 'coerce')
-    #chunk['valuenum'] = pd.to_numeric(chunk['valuenum'],errors = 'coerce')
-    #chunk.to_sql('ChartEvents',conn,if_exists = 'append',index=False)
+conn = sqlite3.connect(r"C:\Users\rosie\Documents\dissertation_start\dissertation_tables.db")
+cursor = conn.cursor()
 
-
-#columns_lab= ['labevent_id','subject_id','hadm_id','specimen_id','itemid','charttime','value','valuenum','valueuom','ref_range_lower','ref_range_upper','flag','comments']
-#lab_events = pd.read_csv(r'labevents.csv.gz',compression = 'gzip', usecols = columns_lab, chunksize=100000,low_memory = False)
-#for chunk in lab_events:
- #   chunk = chunk[chunk['itemid'].isin(lab_items_ids)]
-  #  chunk['labevent_id'] = pd.to_numeric(chunk['labevent_id'],errors='coerce')
-  #  chunk['subject_id'] = pd.to_numeric(chunk['subject_id'],errors='coerce')
-  #  chunk['hadm_id'] = pd.to_numeric(chunk['hadm_id'],errors='coerce')
-  #  chunk['specimen_id'] = pd.to_numeric(chunk['specimen_id'],errors='coerce')
-  #  chunk['itemid'] = pd.to_numeric(chunk['itemid'],errors='coerce')
-  #  chunk['valuenum'] = pd.to_numeric(chunk['valuenum'],errors='coerce')
-  #  chunk['ref_range_lower'] = pd.to_numeric(chunk['ref_range_lower'],errors='coerce')
-   # chunk['ref_range_upper'] = pd.to_numeric(chunk['ref_range_upper'],errors='coerce')
-   # chunk.to_sql("LabEvents",conn,if_exists = 'append',index=False)
-#print(icd_codes.columns)
-#print(diagnoses.columns)
-print(lab_items.columns)
-print(chart_items.columns)
-chart_items = chart_items[['itemid', 'label', 'abbreviation', 'linksto', 'category', 'unitname','param_type', 'lownormalvalue', 'highnormalvalue']]
-icd_codes = icd_codes[['icd_code','icd_version','long_title']]
-diagnoses = diagnoses[['subject_id', 'hadm_id', 'seq_num', 'icd_code', 'icd_version']]
-lab_items = lab_items[['itemid', 'label', 'fluid', 'category']]
-icd_codes=icd_codes.drop_duplicates(subset=['icd_code','icd_version'])
-diagnoses = diagnoses.drop_duplicates(subset=['subject_id', 'hadm_id', 'seq_num'])
-lab_items = lab_items.drop_duplicates(['itemid'])
-icd_codes.to_sql('ICD_CODES',conn , if_exists = "replace",index=False)
-diagnoses.to_sql('DIAGNOSES',conn, if_exists="replace",index=False )
-lab_items.to_sql('LabItems',conn, if_exists = "replace",index=False)
-chart_items.to_sql('ChartItems',conn,if_exists = "replace",index=False)
-conn.commit()
-conn.close()
-print("finish")
-
-
+query1 = pd.read_sql_query("SELECT DIAGNOSES.* FROM DIAGNOSES JOIN ICD_CODES ON DIAGNOSES.icd_code = ICD_CODES.icd_code AND DIAGNOSES.icd_version = ICD_CODES.icd_version WHERE (ICD_CODES.long_title like 'Nontraumatic intracerebral hemorrhage%' or ICD_CODES.long_title like 'Intracerebral hemorrhage%')", conn)
+print(query1['icd_code'].unique())
+#checking creatine
+query2 = pd.read_sql_query("SELECT itemid, label FROM LabItems WHERE label LIKE 'creatinine%'",conn)
+print(query2)
+query3 = pd.read_sql_query("SELECT itemid, label FROM LabItems WHERE label LIKE 'platelet count%'",conn)
+print(query3)
+query4 = pd.read_sql_query("SELECT itemid, label FROM LabItems WHERE label LIKE 'hemoglobin%'",conn)
+print(query4)
+query5 = pd.read_sql_query("SELECT itemid, label FROM LabItems WHERE label LIKE 'hematocrit%'",conn)
+print(query5)
+query6 = pd.read_sql_query("SELECT itemid, label FROM LabItems WHERE label LIKE 'white blood%'",conn)
+print(query6)
+query7 = pd.read_sql_query("SELECT itemid, label FROM LabItems WHERE label LIKE 'potassium%'",conn)
+print(query7)
+query8 = pd.read_sql_query("SELECT itemid, label FROM LabItems WHERE label LIKE 'sodium%'",conn)
+print(query8)
+query9 = pd.read_sql_query("SELECT itemid,label,category FROM ChartItems WHERE label LIKE 'temperature%'",conn)
+print(query9)
+query10 = pd.read_sql_query("SELECT itemid,label FROM ChartItems WHERE label LIKE '%weight%'",conn)
+print(query10)
+query11 = pd.read_sql_query("SELECT itemid,label FROM ChartItems WHERE label LIKE '%blood pressure%'",conn)
+print(query11)
+query12 = pd.read_sql_query("SELECT itemid,label FROM ChartItems WHERE label LIKE 'heart rate%'",conn)
+print(query12)
+query13 = pd.read_sql_query("SELECT icd_code,icd_version,long_title FROM ICD_CODES WHERE long_title LIKE '%hypertension'",conn)
+print(query13)
+query14 = pd.read_sql_query("SELECT itemid,label FROM ChartItems WHERE label LIKE 'GCS%'",conn)
+print(query14)
+query15 = pd.read_sql_query("SELECT itemid, label FROM LabItems WHERE label LIKE '%red blood%'",conn)
+print(query15)
