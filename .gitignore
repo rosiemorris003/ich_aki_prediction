@@ -1,3 +1,5 @@
 *.csv.gz
 *.db
 catboost_info/
+*.csv
+*.db
