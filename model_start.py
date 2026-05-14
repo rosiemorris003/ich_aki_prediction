@@ -1,3 +1,6 @@
+import os
+os.environ["TABPFN_TOKEN"] = "KEY"
+os.environ["TABPFN_ALLOW_CPU_LARGE_DATASET"] = "1"
 import sqlite3
 import pandas as pd
 from sklearn.model_selection import train_test_split
@@ -8,11 +11,10 @@ from lightgbm import LGBMClassifier
 from tabpfn import TabPFNClassifier
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
-from imblearn.over_sampling import SMOTE
+from imblearn.over_sampling import ADASYN
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, precision_score, recall_score, average_precision_score, confusion_matrix
-import os
-os.environ["TABPFN_TOKEN"] = "KEY"
-os.environ["TABPFN_ALLOW_CPU_LARGE_DATASET"] = "1"
+
+
 conn = sqlite3.connect(r"C:\Users\rosie\Documents\dissertation_start\dissertation_tables.db")
 df = pd.read_sql_query("SELECT * FROM final_dataset",conn)
 conn.close()
@@ -28,48 +30,48 @@ imputer = SimpleImputer(strategy = "median")
 X_train = pd.DataFrame(imputer.fit_transform(X_train),columns = X.columns)
 X_test = pd.DataFrame(imputer.transform(X_test),columns = X.columns)
 
-smote = SMOTE(sampling_strategy='minority',random_state=42)
-X_train_smote, y_train_smote = smote.fit_resample(X_train, y_train)
+adasyn = ADASYN(random_state=42)
+X_train_adasyn, y_train_adasyn = adasyn.fit_resample(X_train, y_train)
 
 
 scaler = StandardScaler ()
 X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)
-X_train_smote_scaled = scaler.fit_transform(X_train_smote)
+X_train_adasyn_scaled = scaler.fit_transform(X_train_adasyn)
 X_test_scaled = scaler.transform(X_test)
 
 #Logistic regression code
 logistic = LogisticRegression(max_iter = 1000)
 logistic.fit(X_train_scaled, y_train)
 
-y_pred = logistic.predict(X_test_scaled)
-y_prob = logistic.predict_proba(X_test_scaled)[:,1]
+y_pred_logistic = logistic.predict(X_test_scaled)
+y_prob_logistic = logistic.predict_proba(X_test_scaled)[:,1]
 print("Logistic regression")
-print("Accuracy:", accuracy_score(y_test, y_pred))
-print("F1 Score:", f1_score(y_test, y_pred))
-print("ROC AUC:", roc_auc_score(y_test, y_prob))
-print("Precision:", precision_score(y_test, y_pred))
-print("Recall:", recall_score(y_test, y_pred))
-print("PR-AUC:", average_precision_score(y_test, y_prob))
-tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
+print("Accuracy:", accuracy_score(y_test, y_pred_logistic ))
+print("F1 Score:", f1_score(y_test, y_pred_logistic ))
+print("ROC AUC:", roc_auc_score(y_test, y_prob_logistic))
+print("Precision:", precision_score(y_test, y_pred_logistic ))
+print("Recall:", recall_score(y_test, y_pred_logistic ))
+print("PR-AUC:", average_precision_score(y_test, y_prob_logistic))
+tn, fp, fn, tp = confusion_matrix(y_test, y_pred_logistic ).ravel()
 specificity = tn / (tn + fp)
 print("Specificity:", specificity)
 
-#smote for logistic regression
-logistic_smote = LogisticRegression(max_iter=1000)
-logistic_smote.fit(X_train_smote_scaled, y_train_smote)
+#ADASYN for logistic regression
+logistic_adasyn = LogisticRegression(max_iter=1000)
+logistic_adasyn.fit(X_train_adasyn_scaled, y_train_adasyn)
 
-y_pred = logistic_smote.predict(X_test_scaled)
-y_prob = logistic_smote.predict_proba(X_test_scaled)[:, 1]
+y_pred_logistic_adasyn = logistic_adasyn.predict(X_test_scaled)
+y_prob_logistic_adasyn = logistic_adasyn.predict_proba(X_test_scaled)[:, 1]
 
-print("Logistic Regression with SMOTE")
-print("Accuracy:", accuracy_score(y_test, y_pred))
-print("F1 Score:", f1_score(y_test, y_pred))
-print("ROC AUC:", roc_auc_score(y_test, y_prob))
-print("Precision:", precision_score(y_test, y_pred))
-print("Recall:", recall_score(y_test, y_pred))
-print("PR-AUC:", average_precision_score(y_test, y_prob))
-tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
+print("Logistic Regression with ADASYN")
+print("Accuracy:", accuracy_score(y_test, y_pred_logistic_adasyn))
+print("F1 Score:", f1_score(y_test, y_pred_logistic_adasyn))
+print("ROC AUC:", roc_auc_score(y_test, y_prob_logistic_adasyn))
+print("Precision:", precision_score(y_test, y_pred_logistic_adasyn))
+print("Recall:", recall_score(y_test, y_pred_logistic_adasyn))
+print("PR-AUC:", average_precision_score(y_test, y_prob_logistic_adasyn))
+tn, fp, fn, tp = confusion_matrix(y_test, y_pred_logistic_adasyn).ravel()
 print("Specificity:", tn / (tn + fp))
 
 
@@ -92,22 +94,22 @@ specificity = tn/ (tn+fp)
 print("Specificity:",specificity)
 
 
-#testing smote out with xgboost
-xgb_smote = XGBClassifier(random_state=42, eval_metric="logloss")
-xgb_smote.fit(X_train_smote, y_train_smote)
+#testing ADASYN out with xgboost
+xgb_adasyn = XGBClassifier(random_state=42, eval_metric="logloss")
+xgb_adasyn.fit(X_train_adasyn, y_train_adasyn)
 
-y_pred_xgb_smote = xgb_smote.predict(X_test)
-y_prob_xgb_smote = xgb_smote.predict_proba(X_test)[:, 1]
+y_pred_xgb_adasyn = xgb_adasyn.predict(X_test)
+y_prob_xgb_adasyn = xgb_adasyn.predict_proba(X_test)[:, 1]
 
-print("XGBoost with SMOTE")
-print("Accuracy:", accuracy_score(y_test, y_pred_xgb_smote))
-print("F1 Score:", f1_score(y_test, y_pred_xgb_smote))
-print("ROC AUC:", roc_auc_score(y_test, y_prob_xgb_smote))
-print("Precision:", precision_score(y_test, y_pred_xgb_smote))
-print("Recall:", recall_score(y_test, y_pred_xgb_smote))
-print("PR-AUC:", average_precision_score(y_test, y_prob_xgb_smote))
+print("XGBoost with ADASYN")
+print("Accuracy:", accuracy_score(y_test, y_pred_xgb_adasyn))
+print("F1 Score:", f1_score(y_test, y_pred_xgb_adasyn))
+print("ROC AUC:", roc_auc_score(y_test, y_prob_xgb_adasyn))
+print("Precision:", precision_score(y_test, y_pred_xgb_adasyn))
+print("Recall:", recall_score(y_test, y_pred_xgb_adasyn))
+print("PR-AUC:", average_precision_score(y_test, y_prob_xgb_adasyn))
 
-tn, fp, fn, tp = confusion_matrix(y_test, y_pred_xgb_smote).ravel()
+tn, fp, fn, tp = confusion_matrix(y_test, y_pred_xgb_adasyn).ravel()
 specificity = tn / (tn + fp)
 print("Specificity:", specificity)
 
@@ -129,21 +131,21 @@ specificity = tn/ (tn+fp)
 print("Specificity:",specificity)
 
 
-#catboost with smote
-cat_smote = CatBoostClassifier(random_state=42, verbose=0)
-cat_smote.fit(X_train_smote, y_train_smote)
+#catboost with ADASYN 
+cat_adasyn = CatBoostClassifier(random_state=42, verbose=0)
+cat_adasyn.fit(X_train_adasyn, y_train_adasyn)
 
-y_pred = cat_smote.predict(X_test)
-y_prob = cat_smote.predict_proba(X_test)[:, 1]
+y_pred_cat_adasyn = cat_adasyn.predict(X_test)
+y_prob_cat_adasyn = cat_adasyn.predict_proba(X_test)[:, 1]
 
-print("CatBoost with SMOTE")
-print("Accuracy:", accuracy_score(y_test, y_pred))
-print("F1 Score:", f1_score(y_test, y_pred))
-print("ROC AUC:", roc_auc_score(y_test, y_prob))
-print("Precision:", precision_score(y_test, y_pred))
-print("Recall:", recall_score(y_test, y_pred))
-print("PR-AUC:", average_precision_score(y_test, y_prob))
-tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
+print("CatBoost with ADASYN")
+print("Accuracy:", accuracy_score(y_test, y_pred_cat_adasyn))
+print("F1 Score:", f1_score(y_test, y_pred_cat_adasyn))
+print("ROC AUC:", roc_auc_score(y_test, y_prob_cat_adasyn))
+print("Precision:", precision_score(y_test, y_pred_cat_adasyn))
+print("Recall:", recall_score(y_test, y_pred_cat_adasyn))
+print("PR-AUC:", average_precision_score(y_test, y_prob_cat_adasyn))
+tn, fp, fn, tp = confusion_matrix(y_test, y_pred_cat_adasyn).ravel()
 print("Specificity:", tn / (tn + fp))
 
 #lightgbm
@@ -162,21 +164,19 @@ tn, fp, fn, tp = confusion_matrix(y_test, y_pred_lgbm).ravel()
 specificity = tn / (tn + fp)
 print("Specificity:", specificity)
 
-#lightgbm with smote 
-lgbm_smote = LGBMClassifier(random_state=42)
-lgbm_smote.fit(X_train_smote, y_train_smote)
-
-y_pred = lgbm_smote.predict(X_test)
-y_prob = lgbm_smote.predict_proba(X_test)[:, 1]
-
-print("LightGBM with SMOTE")
-print("Accuracy:", accuracy_score(y_test, y_pred))
-print("F1 Score:", f1_score(y_test, y_pred))
-print("ROC AUC:", roc_auc_score(y_test, y_prob))
-print("Precision:", precision_score(y_test, y_pred))
-print("Recall:", recall_score(y_test, y_pred))
-print("PR-AUC:", average_precision_score(y_test, y_prob))
-tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
+#lightgbm with ADASYN 
+lgbm_adasyn = LGBMClassifier(random_state=42)
+lgbm_adasyn.fit(X_train_adasyn, y_train_adasyn)
+y_pred_lgbm_adasyn = lgbm_adasyn.predict(X_test)
+y_prob_lgbm_adasyn = lgbm_adasyn.predict_proba(X_test)[:, 1]
+print("LightGBM with ADASYN")
+print("Accuracy:", accuracy_score(y_test, y_pred_lgbm_adasyn))
+print("F1 Score:", f1_score(y_test, y_pred_lgbm_adasyn))
+print("ROC AUC:", roc_auc_score(y_test, y_prob_lgbm_adasyn))
+print("Precision:", precision_score(y_test, y_pred_lgbm_adasyn))
+print("Recall:", recall_score(y_test, y_pred_lgbm_adasyn))
+print("PR-AUC:", average_precision_score(y_test, y_prob_lgbm_adasyn))
+tn, fp, fn, tp = confusion_matrix(y_test, y_pred_lgbm_adasyn).ravel()
 print("Specificity:", tn / (tn + fp))
 
 #tabpfn code
@@ -195,19 +195,18 @@ tn, fp, fn, tp = confusion_matrix(y_test, y_pred_tabpfn).ravel()
 specificity = tn / (tn + fp)
 print("Specificity:", specificity)
 
-#tabpfn with smote 
-tabpfn_smote = TabPFNClassifier(random_state=42, ignore_pretraining_limits=True)
-tabpfn_smote.fit(X_train_smote, y_train_smote)
+#tabpfn with ADASYN 
+tabpfn_adasyn = TabPFNClassifier(random_state=42, ignore_pretraining_limits=True)
+tabpfn_adasyn.fit(X_train_adasyn, y_train_adasyn)
+y_pred_tabpfn_adasyn = tabpfn_adasyn.predict(X_test)
+y_prob_tabpfn_adasyn = tabpfn_adasyn.predict_proba(X_test)[:, 1]
 
-y_pred = tabpfn_smote.predict(X_test)
-y_prob = tabpfn_smote.predict_proba(X_test)[:, 1]
-
-print("TabPFN with SMOTE")
-print("Accuracy:", accuracy_score(y_test, y_pred))
-print("F1 Score:", f1_score(y_test, y_pred))
-print("ROC AUC:", roc_auc_score(y_test, y_prob))
-print("Precision:", precision_score(y_test, y_pred))
-print("Recall:", recall_score(y_test, y_pred))
-print("PR-AUC:", average_precision_score(y_test, y_prob))
-tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
+print("TabPFN with ADASYN")
+print("Accuracy:", accuracy_score(y_test, y_pred_tabpfn_adasyn))
+print("F1 Score:", f1_score(y_test, y_pred_tabpfn_adasyn))
+print("ROC AUC:", roc_auc_score(y_test, y_prob_tabpfn_adasyn))
+print("Precision:", precision_score(y_test, y_pred_tabpfn_adasyn))
+print("Recall:", recall_score(y_test, y_pred_tabpfn_adasyn))
+print("PR-AUC:", average_precision_score(y_test, y_prob_tabpfn_adasyn))
+tn, fp, fn, tp = confusion_matrix(y_test, y_pred_tabpfn_adasyn).ravel()
 print("Specificity:", tn / (tn + fp))
