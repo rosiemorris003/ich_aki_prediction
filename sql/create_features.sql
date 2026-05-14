@@ -44,7 +44,7 @@ WHERE itemid = 220045 AND valuenum BETWEEN 20 AND 250 GROUP BY subject_id, hadm_
 CREATE TABLE sbp AS
 SELECT subject_id, hadm_id, AVG(valuenum) AS sbp_mean, MIN(valuenum) AS sbp_min, MAX(valuenum) AS sbp_max
 FROM ICH_ChartEvents_24h 
-WHERE itemid = 220179 AND valuenum BETWEEM 30 AND 300 GROUP BY subject_id, hadm_id;
+WHERE itemid = 220179 AND valuenum BETWEEN 30 AND 300 GROUP BY subject_id, hadm_id;
 
 CREATE TABLE dbp AS
 SELECT subject_id, hadm_id, AVG(valuenum) AS dbp_mean, MIN(valuenum) AS dbp_min, MAX(valuenum) AS dbp_max
