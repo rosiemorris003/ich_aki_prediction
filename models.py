@@ -3,15 +3,19 @@ os.environ["TABPFN_TOKEN"] = "KEY"
 os.environ["TABPFN_ALLOW_CPU_LARGE_DATASET"] = "1"
 import sqlite3
 import pandas as pd
-from sklearn.model_selection import train_test_split
+import matplotlib.pyplot as plt
+import shap
+from sklearn.model_selection import train_test_split, RandomizedSearchCV
 from sklearn.linear_model import LogisticRegression
 from xgboost import XGBClassifier
 from catboost import CatBoostClassifier
 from lightgbm import LGBMClassifier
+from sklearn.ensemble import RandomForestClassifier
 from tabpfn import TabPFNClassifier
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
 from imblearn.under_sampling import RandomUnderSampler
+
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, precision_score, recall_score, average_precision_score, confusion_matrix
 conn = sqlite3.connect(r"C:\Users\rosie\Documents\dissertation_start\dissertation_tables.db")
 df = pd.read_sql_query("SELECT * FROM final_dataset",conn)
@@ -19,7 +23,7 @@ conn.close()
 #convert gender to binary values
 df['gender'] = df['gender'].map({'M': 1, 'F': 0})
 #separate the predictors and aki labels
-X = df.drop(columns = ['subject_id', 'hadm_id', 'stay_id', 'AKI'])
+X = df.drop(columns = ['subject_id', 'hadm_id', 'stay_id', 'AKI', 'los'])
 y = df['AKI']
 #split on 80/20 for training and testing
 X_train, X_test, y_train, y_test = train_test_split(X,y, test_size = 0.2,random_state = 42, stratify = y)
@@ -38,84 +42,161 @@ X_train_rus, y_train_rus = randomundersampler.fit_resample(X_train, y_train)
 X_train_scaled_rus, y_train_scaled_rus = randomundersampler.fit_resample(X_train_scaled, y_train)
 
 #to calculate and print the metrics
-def evaluate_model(name, y_test, y_pred, y_prob):
+def evaluate_model(name, model, X_train, y_train, X_test, y_test):
+    y_train_pred = model.predict(X_train)
+    y_train_prob = model.predict_proba(X_train)[:,1]
+    y_test_pred = model.predict(X_test)
+    y_test_prob = model.predict_proba(X_test)[:,1]
     print(name)
-    print("Accuracy:", accuracy_score(y_test, y_pred))
-    print("F1 Score:", f1_score(y_test, y_pred))
-    print("ROC AUC:", roc_auc_score(y_test, y_prob))
-    print("Precision:", precision_score(y_test, y_pred))
-    print("Recall:", recall_score(y_test, y_pred))
-    print("PR-AUC:", average_precision_score(y_test, y_prob))
-    tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
-    specificity = tn / (tn + fp)
-    print("Specificity:", specificity)
-
+    print("Training accuracy:", accuracy_score(y_train, y_train_pred))
+    print("Testing accuracy:", accuracy_score(y_test, y_test_pred))
+    print("Training F1 Score:", f1_score(y_train, y_train_pred))
+    print("Testing F1 Score:", f1_score(y_test, y_test_pred))
+    print("Training ROC-AUC:", roc_auc_score(y_train, y_train_prob))
+    print("Testing ROC-AUC:", roc_auc_score(y_test, y_test_prob))
+    print("Training Precision:", precision_score(y_train, y_train_pred))
+    print("Testing Precision:", precision_score(y_test, y_test_pred))
+    print("Training Recall:", recall_score(y_train, y_train_pred))
+    print("Testing Recall:", recall_score(y_test, y_test_pred))
+    print("Training PR-AUC:", average_precision_score(y_train, y_train_prob))
+    print("Testing PR-AUC:", average_precision_score(y_test, y_test_prob))
+    tn_train, fp_train, fn_train, tp_train = confusion_matrix(y_train, y_train_pred).ravel()
+    training_specificity = tn_train / (tn_train + fp_train)
+    print("Training Specificity:", training_specificity)
+    tn_test, fp_test, fn_test, tp_test = confusion_matrix(y_test, y_test_pred).ravel()
+    testing_specificity = tn_test / (tn_test + fp_test)
+    print("Testing Specificity:", testing_specificity)
+    print(" ")
 #Logistic regression code
 logistic = LogisticRegression(max_iter = 1000)
 logistic.fit(X_train_scaled, y_train)
-y_pred_logistic = logistic.predict(X_test_scaled)
-y_prob_logistic = logistic.predict_proba(X_test_scaled)[:,1]
-evaluate_model("Logistic regression", y_test, y_pred_logistic, y_prob_logistic)
+evaluate_model("Logistic regression", logistic, X_train_scaled, y_train, X_test_scaled, y_test)
+
+#adding shap
+#to create SHAP summary plots for tree-based models
+def shap_summary_plot(model, X_data, model_name):
+    explainer = shap.TreeExplainer(model)
+    shap_values = explainer.shap_values(X_data)
+    if isinstance(shap_values, list):
+        shap_values_to_plot = shap_values[1]
+    elif len(shap_values.shape) == 3:
+        shap_values_to_plot = shap_values[:, :, 1]
+    else:
+        shap_values_to_plot = shap_values
+    shap.summary_plot(shap_values_to_plot, X_data, show=False)
+    plt.title(model_name + " SHAP summary plot")
+    plt.tight_layout()
+    plt.show()
+
 
 #logistic regression with random undersampling 
 logistic_rus = LogisticRegression(max_iter = 1000)
 logistic_rus.fit(X_train_scaled_rus, y_train_scaled_rus)
-y_pred_logistic_rus = logistic_rus.predict(X_test_scaled)
-y_prob_logistic_rus = logistic_rus.predict_proba(X_test_scaled)[:,1]
-evaluate_model("Logistic regression with random undersampling", y_test, y_pred_logistic_rus, y_prob_logistic_rus)
-
+evaluate_model("Logistic regression with random undersampling", logistic_rus, X_train_scaled_rus, y_train_scaled_rus, X_test_scaled, y_test)
 #XGBoost  
 xgb = XGBClassifier(random_state = 42, eval_metric = 'logloss')
 xgb.fit(X_train, y_train)
-y_pred_xgb = xgb.predict(X_test)
-y_prob_xgb = xgb.predict_proba(X_test)[:,1]
-evaluate_model("XGBoost", y_test, y_pred_xgb, y_prob_xgb)
+evaluate_model("XGBoost", xgb, X_train, y_train, X_test, y_test)
 
 #xgboost with random under sampling
 xgb_rus = XGBClassifier(random_state = 42, eval_metric = 'logloss')
 xgb_rus.fit(X_train_rus, y_train_rus)
-y_pred_xgb_rus = xgb_rus.predict(X_test)
-y_prob_xgb_rus = xgb_rus.predict_proba(X_test)[:,1]
-evaluate_model("XGBoost with random undersampling", y_test, y_pred_xgb_rus, y_prob_xgb_rus)
+evaluate_model("XGBoost with random undersampling",xgb_rus, X_train_rus, y_train_rus, X_test, y_test)
 
 #catboost
 cat = CatBoostClassifier(random_state = 42, verbose = 0)
 cat.fit(X_train, y_train)
-y_pred_cat = cat.predict(X_test)
-y_prob_cat = cat.predict_proba(X_test)[:,1]
-evaluate_model("CatBoost", y_test, y_pred_cat, y_prob_cat)
+evaluate_model("CatBoost", cat, X_train, y_train, X_test, y_test)
 
 #catboost with random undersampling
 cat_rus = CatBoostClassifier(random_state = 42, verbose = 0)
 cat_rus.fit(X_train_rus, y_train_rus)
-y_pred_cat_rus = cat_rus.predict(X_test)
-y_prob_cat_rus = cat_rus.predict_proba(X_test)[:,1]
-evaluate_model("CatBoost with random undersampling", y_test, y_pred_cat_rus, y_prob_cat_rus)
-
+evaluate_model("CatBoost with random undersampling", cat_rus, X_train_rus, y_train_rus, X_test, y_test)
 #lightgbm
 lgbm = LGBMClassifier(random_state = 42)
 lgbm.fit(X_train, y_train)
-y_pred_lgbm = lgbm.predict(X_test)
-y_prob_lgbm = lgbm.predict_proba(X_test)[:,1]
-evaluate_model("LightGBM", y_test, y_pred_lgbm, y_prob_lgbm)
+evaluate_model("LightGBM", lgbm, X_train, y_train, X_test, y_test)
 
 #lightgbm with random undersampling
 lgbm_rus = LGBMClassifier(random_state = 42)
 lgbm_rus.fit(X_train_rus, y_train_rus)
-y_pred_lgbm_rus = lgbm_rus.predict(X_test)
-y_prob_lgbm_rus = lgbm_rus.predict_proba(X_test)[:,1]
-evaluate_model("LightGBM with random undersampling", y_test, y_pred_lgbm_rus, y_prob_lgbm_rus)
+evaluate_model("LightGBM with random undersampling", lgbm_rus, X_train_rus, y_train_rus, X_test, y_test)
 
+#random forest 
+rf = RandomForestClassifier(random_state=42)
+rf.fit(X_train, y_train)
+evaluate_model("Random Forest", rf, X_train, y_train, X_test, y_test)
+
+#random forest with random undersampling 
+rf_rus = RandomForestClassifier(random_state=42)
+rf_rus.fit(X_train_rus, y_train_rus)
+evaluate_model("Random Forest with random undersampling", rf_rus, X_train_rus, y_train_rus, X_test, y_test)
 #tabpfn code
 tabpfn = TabPFNClassifier(random_state=42, ignore_pretraining_limits=True)
 tabpfn.fit(X_train,y_train)
-y_pred_tabpfn = tabpfn.predict(X_test)
-y_prob_tabpfn = tabpfn.predict_proba(X_test)[:,1]
-evaluate_model("TabPFN", y_test, y_pred_tabpfn, y_prob_tabpfn)
+evaluate_model("TabPFN", tabpfn, X_train, y_train, X_test, y_test)
 
 #tabpfn with random undersampling
 tabpfn_rus = TabPFNClassifier(random_state=42, ignore_pretraining_limits=True)
 tabpfn_rus.fit(X_train_rus,y_train_rus)
-y_pred_tabpfn_rus = tabpfn_rus.predict(X_test)
-y_prob_tabpfn_rus = tabpfn_rus.predict_proba(X_test)[:,1]
-evaluate_model("TabPFN with random undersampling", y_test, y_pred_tabpfn_rus, y_prob_tabpfn_rus)
+evaluate_model("TabPFN with random undersampling", tabpfn_rus, X_train_rus, y_train_rus, X_test, y_test)
+
+#hyperparameter tuning using randomised search cv
+#logistic regression
+#create parameter dictionary
+logistic_params = {"C":[0.01, 0.1, 1, 10, 100], "solver": ["lbfgs", "liblinear"]}
+logistic_tuning = LogisticRegression(max_iter=1000)
+#build random search using the parameter dictionary and logistic model
+logistic_search = RandomizedSearchCV(estimator=logistic_tuning, param_distributions=logistic_params, n_iter = 10, cv=5, scoring = "roc_auc", random_state=42, n_jobs = -1)
+#fit to scaled random undersampled training data
+logistic_search.fit(X_train_scaled_rus, y_train_scaled_rus)
+print("Best parameters for logistic regression", logistic_search.best_params_)
+#use best model from the search 
+best_logistic = logistic_search.best_estimator_
+evaluate_model("Tuned logistic regression with random undersampling", best_logistic, X_train_scaled_rus, y_train_scaled_rus, X_test_scaled, y_test)
+
+#xgboost tuning
+#create parameter dictionary 
+xgb_params = {"n_estimators":[100, 200, 300], "max_depth":[4, 6, 8], "learning_rate": [0.01, 0.05, 0.1], "subsample": [0.8, 1.0],"colsample_bytree": [0.8, 1.0], "min_child_weight":[1, 3, 5], "gamma":[0, 0.1, 0.3]}
+xgb_tuned = XGBClassifier(random_state=42, eval_metric="logloss")
+#building random search using the parameter dictionary and xgboost model
+xgb_search = RandomizedSearchCV(estimator= xgb_tuned, param_distributions = xgb_params, n_iter = 20, cv = 5, scoring = "roc_auc", random_state = 42, n_jobs = -1)
+xgb_search.fit(X_train_rus, y_train_rus)
+print("Best XGBoost parameters:", xgb_search.best_params_)
+best_xgb = xgb_search.best_estimator_
+evaluate_model("Tuned XGBoost model with random undersampling", best_xgb, X_train_rus, y_train_rus, X_test, y_test)
+
+#catboost tuning 
+#catboost parameter dictionary 
+cat_params = {"iterations":[100, 200, 300],"depth": [4, 6, 8], "learning_rate": [0.01, 0.05, 0.1], "l2_leaf_reg": [1, 3, 5, 7]}
+cat_tuned = CatBoostClassifier(random_state = 42, verbose = 0)
+#build random search for catboost model using parameter dictionary 
+cat_search = RandomizedSearchCV(estimator=cat_tuned, param_distributions=cat_params, n_iter = 20, cv = 5, scoring = "roc_auc", random_state=42, n_jobs = -1)
+cat_search.fit(X_train_rus, y_train_rus)
+print("Best CatBoost parameters:", cat_search.best_params_)
+best_cat = cat_search.best_estimator_
+evaluate_model("Tuned CatBoost model with random undersampling", best_cat,  X_train_rus, y_train_rus, X_test, y_test)
+
+#lightgbm tuning 
+lgbm_params = {"n_estimators": [100, 200, 300], "num_leaves": [31, 63, 127], "learning_rate": [0.01, 0.05, 0.1], "max_depth": [-1, 5, 10]}
+lgbm_tuned = LGBMClassifier(random_state=42, verbose = -1)
+lgbm_search = RandomizedSearchCV(estimator = lgbm_tuned, param_distributions=lgbm_params, n_iter = 20, cv=5, scoring = "roc_auc", random_state=42, n_jobs = -1)
+lgbm_search.fit(X_train_rus, y_train_rus)
+print("Best LightGBM parameters:", lgbm_search.best_params_)
+best_lgbm = lgbm_search.best_estimator_
+evaluate_model("Tuned LightGBM with random undersampling", best_lgbm,  X_train_rus, y_train_rus, X_test, y_test)
+
+#random forest tuning 
+rf_params = {"n_estimators":[100, 200, 300], "max_depth":[None, 5, 10, 20], "max_features":["sqrt","log2"], "min_samples_split":[2,5,10], "min_samples_leaf":[1,2,4]}
+rf_tuned = RandomForestClassifier(random_state=42)
+rf_search = RandomizedSearchCV(estimator = rf_tuned, param_distributions=rf_params, n_iter = 20, cv = 5, scoring = "roc_auc", random_state=42, n_jobs = -1)
+rf_search.fit(X_train_rus, y_train_rus)
+print("Best random forest parameters:", rf_search.best_params_)
+best_rf = rf_search.best_estimator_
+evaluate_model("Tuned Random Forest with random undersampling", best_rf,  X_train_rus, y_train_rus, X_test, y_test)
+
+#SHAP interpretation for tree-based models
+shap_summary_plot(best_cat, X_test, "Tuned CatBoost with random undersampling")
+shap_summary_plot(best_rf, X_test, "Tuned Random Forest with random undersampling")
+shap_summary_plot(best_xgb, X_test, "Tuned XGBoost with random undersampling")
+shap_summary_plot(best_lgbm, X_test, "Tuned LightGBM with random undersampling")
