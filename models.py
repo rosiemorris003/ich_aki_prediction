@@ -30,7 +30,8 @@ from tensorflow.keras.layers import Dense
 from tensorflow.keras.callbacks import EarlyStopping
 from scikeras.wrappers import KerasClassifier
 from tabpfn_extensions.interpretability.shapiq import get_tabpfn_explainer
-from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, precision_score, recall_score, average_precision_score, confusion_matrix
+from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, precision_score, recall_score, average_precision_score, confusion_matrix, brier_score_loss
+from sklearn.calibration import CalibratedClassifierCV, calibration_curve
 conn = sqlite3.connect(r"C:\Users\rosie\Documents\dissertation_start\dissertation_tables.db")
 df = pd.read_sql_query("SELECT * FROM final_dataset",conn)
 conn.close()
@@ -41,7 +42,6 @@ X = df.drop(columns = ['subject_id', 'hadm_id', 'stay_id', 'AKI', 'los'])
 y = df['AKI']
 #split on 80/20 for training and testing
 X_train, X_test, y_train, y_test = train_test_split(X,y, test_size = 0.2,random_state = 42, stratify = y)
-
 #use the imputer stuff to fill the missing gaps with the median
 imputer = SimpleImputer(strategy = "median")
 X_train = pd.DataFrame(imputer.fit_transform(X_train),columns = X.columns)
@@ -56,12 +56,13 @@ randomundersampler = RandomUnderSampler(random_state=42)
 X_train_rus, y_train_rus = randomundersampler.fit_resample(X_train, y_train)
 X_train_scaled_rus = scaler.transform(X_train_rus)
 #to calculate and print the metrics, both training and testing for overfittig
-def evaluate_model(name, model, X_train, y_train, X_test, y_test):
-    y_train_pred = model.predict(X_train)
+def evaluate_model(name, model, X_train, y_train, X_test, y_test, threshold = 0.5):
     y_train_prob = model.predict_proba(X_train)[:,1]
-    y_test_pred = model.predict(X_test)
     y_test_prob = model.predict_proba(X_test)[:,1]
+    y_train_pred = (y_train_prob >= threshold).astype(int)
+    y_test_pred = (y_test_prob >= threshold).astype(int)
     print(name)
+    print("Threshold: ", threshold)
     print("Training accuracy:", accuracy_score(y_train, y_train_pred))
     print("Testing accuracy:", accuracy_score(y_test, y_test_pred))
     print("Training F1 Score:", f1_score(y_train, y_train_pred))
@@ -81,6 +82,8 @@ def evaluate_model(name, model, X_train, y_train, X_test, y_test):
     tn_test, fp_test, fn_test, tp_test = confusion_matrix(y_test, y_test_pred).ravel()
     testing_specificity = tn_test / (tn_test + fp_test)
     print("Testing Specificity:", testing_specificity)
+    print("Training Brier Score:", brier_score_loss(y_train, y_train_prob))
+    print("Testing Brier Score:", brier_score_loss(y_test, y_test_prob))
     print(" ")
 #ann evaulate model 
 def evaluate_ann(name, model, X_train, y_train, X_test, y_test):
@@ -107,8 +110,29 @@ def evaluate_ann(name, model, X_train, y_train, X_test, y_test):
     tn_test, fp_test, fn_test, tp_test = confusion_matrix(y_test, y_test_pred).ravel()
     testing_specificity = tn_test / (tn_test + fp_test)
     print("Testing Specificity:", testing_specificity)
+    print("Training Brier Score:", brier_score_loss(y_train, y_train_prob))
+    print("Testing Brier Score:", brier_score_loss(y_test, y_test_prob))
     print(" ")
 
+#calibrating the models 
+def calibrate_and_evaluate_model(name, model, X_train, y_train, X_test, y_test):
+    #using sigmoid calibration 
+    calibrated_model = CalibratedClassifierCV(estimator=model,method="sigmoid", cv=5)
+    calibrated_model.fit(X_train, y_train)
+    #use lower threshold for calibration
+    evaluate_model(name + " calibrated", calibrated_model, X_train, y_train, X_test, y_test, threshold = 0.25)
+    y_test_prob = calibrated_model.predict_proba(X_test)[:, 1]
+    prob_true, prob_pred = calibration_curve(y_test, y_test_prob, n_bins=10)
+    plt.figure(figsize=(6, 6))
+    plt.plot(prob_pred, prob_true, marker="o", label=name)
+    plt.plot([0, 1], [0, 1], linestyle="--", label="Perfect calibration")
+    plt.xlabel("Mean predicted probability")
+    plt.ylabel("Observed proportion of AKI")
+    plt.title(name + " calibration curve")
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+    return calibrated_model
 #adding shap
 #to create SHAP summary plots for tree based models
 def shap_summary_plot(model, X_data, model_name):
@@ -128,7 +152,7 @@ def shap_summary_plot(model, X_data, model_name):
     plt.title(model_name + " SHAP summary plot")
     plt.tight_layout()
     plt.show()
-
+#shap code for the ann model
 def ann_summary(model, X_train_data, X_test_data, model_name):
     X_train_df = pd.DataFrame(X_train_data, columns = X.columns)
     X_test_df = pd.DataFrame(X_test_data, columns = X.columns)
@@ -140,16 +164,28 @@ def ann_summary(model, X_train_data, X_test_data, model_name):
     plt.title(model_name + " SHAP summary plot")
     plt.tight_layout()
     plt.show()
+
+#odds ratio code for logistic regression 
+def odds_ratios(model, feature_names, model_name):
+    coefficients = model.coef_[0]
+    odds_ratios = np.exp(coefficients)
+    odds_df = pd.DataFrame({"Feature": feature_names, "Coefficient": coefficients, "Odds ratio": odds_ratios})
+    odds_df["Absolute coefficient"] = odds_df["Coefficient"].abs()
+    odds_df = odds_df.sort_values("Absolute coefficient", ascending=False)
+    print(model_name + " odds ratios")
+    print(odds_df)
+    return odds_df
 #Logistic regression code
 logistic = LogisticRegression(max_iter = 1000)
 logistic.fit(X_train_scaled, y_train)
 evaluate_model("Logistic regression", logistic, X_train_scaled, y_train, X_test_scaled, y_test)
+logistic_odds = odds_ratios(logistic, X.columns, "Logistic regression")
 
 #logistic regression with random undersampling 
 logistic_rus = LogisticRegression(max_iter = 1000)
 logistic_rus.fit(X_train_scaled_rus, y_train_rus)
 evaluate_model("Logistic regression with random undersampling", logistic_rus, X_train_scaled_rus, y_train_rus, X_test_scaled, y_test)
-
+logistic_rus_odds = odds_ratios(logistic_rus, X.columns, "Logistic regression with random undersampling")
 #XGBoost  
 xgb = XGBClassifier(random_state = 42, eval_metric = 'logloss')
 xgb.fit(X_train, y_train)
@@ -190,14 +226,14 @@ rf_rus = RandomForestClassifier(random_state=42)
 rf_rus.fit(X_train_rus, y_train_rus)
 evaluate_model("Random Forest with random undersampling", rf_rus, X_train_rus, y_train_rus, X_test, y_test)
 #tabpfn code
-tabpfn = TabPFNClassifier(random_state=42, ignore_pretraining_limits=True)
-tabpfn.fit(X_train,y_train)
-evaluate_model("TabPFN", tabpfn, X_train, y_train, X_test, y_test)
+#tabpfn = TabPFNClassifier(random_state=42, ignore_pretraining_limits=True)
+#tabpfn.fit(X_train,y_train)
+#evaluate_model("TabPFN", tabpfn, X_train, y_train, X_test, y_test)
 
 #tabpfn with random undersampling
-tabpfn_rus = TabPFNClassifier(random_state=42, ignore_pretraining_limits=True)
-tabpfn_rus.fit(X_train_rus,y_train_rus)
-evaluate_model("TabPFN with random undersampling", tabpfn_rus, X_train_rus, y_train_rus, X_test, y_test)
+#tabpfn_rus = TabPFNClassifier(random_state=42, ignore_pretraining_limits=True)
+#tabpfn_rus.fit(X_train_rus,y_train_rus)
+#evaluate_model("TabPFN with random undersampling", tabpfn_rus, X_train_rus, y_train_rus, X_test, y_test)
 
 #ann 
 tf.random.set_seed(42)
@@ -232,6 +268,8 @@ logistic_search.fit(X_train, y_train)
 print("Best parameters logistic regression:", logistic_search.best_params_)
 best_logistic = logistic_search.best_estimator_
 evaluate_model("Tuned logistic regression with random undersampling", best_logistic, X_train, y_train, X_test, y_test)
+tuned_logistic_model = best_logistic.named_steps["model"]
+tuned_logistic_odds = odds_ratios(tuned_logistic_model, X.columns, "Tuned logistic regressiom with random undersampling ")
 
 #xgboost tuning
 xgb_pipeline = Pipeline([("imputer", SimpleImputer(strategy="median")),("rus", RandomUnderSampler(random_state=42)), ("model", XGBClassifier(random_state=42, eval_metric="logloss"))])
@@ -301,8 +339,16 @@ tabpfn_pipeline = Pipeline([("imputer", SimpleImputer(strategy="median")),("rus"
 tabpfn_pipeline.fit(X_train, y_train)
 evaluate_model("TabPFN with random undersampling pipeline", tabpfn_pipeline, X_train, y_train, X_test, y_test)
 
+#add the calibration to the tuned models 
+calibrated_logistic = calibrate_and_evaluate_model("Tuned logistic regression with random undersampling", best_logistic, X_train,y_train, X_test, y_test)
+calibrated_xgb = calibrate_and_evaluate_model("Tuned XGBoost with random undersampling", best_xgb, X_train, y_train, X_test, y_test)
+calibrated_cat = calibrate_and_evaluate_model("Tuned CatBoost with random undersampling", best_cat, X_train, y_train, X_test, y_test)
+calibrated_lgbm = calibrate_and_evaluate_model("Tuned LightGBM with random undersampling", best_lgbm, X_train, y_train, X_test, y_test)
+calibrated_rf = calibrate_and_evaluate_model("Tuned Random Forest with random undersampling", best_rf, X_train, y_train, X_test, y_test)
+calibrated_tabpfn = calibrate_and_evaluate_model("TabPFN with random undersampling pipeline", tabpfn_pipeline, X_train, y_train, X_test, y_test)
+
 #SHAP interpretation for tree based models
-ann_summary(ann_rus, X_train_scaled_rus, X_test_scaled, "ANN with random undersampling")#
+ann_summary(ann_rus, X_train_scaled_rus, X_test_scaled, "ANN with random undersampling") 
 ann_summary(best_ann.model_, X_train_scaled_rus, X_test_scaled, "Tuned ANN with random undersampling")
 shap_summary_plot(best_cat.named_steps["model"], X_test, "Tuned CatBoost with random undersampling")
 shap_summary_plot(best_rf.named_steps["model"], X_test, "Tuned Random Forest with random undersampling")
