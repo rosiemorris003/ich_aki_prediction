@@ -164,16 +164,28 @@ def ann_summary(model, X_train_data, X_test_data, model_name):
     plt.title(model_name + " SHAP summary plot")
     plt.tight_layout()
     plt.show()
+
+#odds ratio code for logistic regression 
+def odds_ratios(model, feature_names, model_name):
+    coefficients = model.coef_[0]
+    ratios = np.exp(coefficients)
+    odds_df = pd.DataFrame({"Feature": feature_names, "Coefficient": coefficients, "Odds ratio": ratios})
+    odds_df["Absolute coefficient"] = odds_df["Coefficient"].abs()
+    odds_df = odds_df.sort_values("Absolute coefficient", ascending=False)
+    print(model_name + " odds ratios")
+    print(odds_df)
+    return odds_df
 #Logistic regression code
 logistic = LogisticRegression(max_iter = 1000)
 logistic.fit(X_train_scaled, y_train)
 evaluate_model("Logistic regression", logistic, X_train_scaled, y_train, X_test_scaled, y_test)
+logistic_odds = odds_ratios(logistic, X.columns, "Logistic regression")
 
 #logistic regression with random undersampling 
 logistic_rus = LogisticRegression(max_iter = 1000)
 logistic_rus.fit(X_train_scaled_rus, y_train_rus)
 evaluate_model("Logistic regression with random undersampling", logistic_rus, X_train_scaled_rus, y_train_rus, X_test_scaled, y_test)
-
+logistic_rus_odds = odds_ratios(logistic_rus, X.columns, "Logistic regression with random undersampling")
 #XGBoost  
 xgb = XGBClassifier(random_state = 42, eval_metric = 'logloss')
 xgb.fit(X_train, y_train)
@@ -256,6 +268,8 @@ logistic_search.fit(X_train, y_train)
 print("Best parameters logistic regression:", logistic_search.best_params_)
 best_logistic = logistic_search.best_estimator_
 evaluate_model("Tuned logistic regression with random undersampling", best_logistic, X_train, y_train, X_test, y_test)
+tuned_logistic_model = best_logistic.named_steps["model"]
+tuned_logistic_odds = odds_ratios(tuned_logistic_model, X.columns, "Tuned logistic regressiom with random undersampling ")
 
 #xgboost tuning
 xgb_pipeline = Pipeline([("imputer", SimpleImputer(strategy="median")),("rus", RandomUnderSampler(random_state=42)), ("model", XGBClassifier(random_state=42, eval_metric="logloss"))])
