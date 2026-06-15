@@ -168,8 +168,8 @@ def ann_summary(model, X_train_data, X_test_data, model_name):
 #odds ratio code for logistic regression 
 def odds_ratios(model, feature_names, model_name):
     coefficients = model.coef_[0]
-    odds_ratios = np.exp(coefficients)
-    odds_df = pd.DataFrame({"Feature": feature_names, "Coefficient": coefficients, "Odds ratio": odds_ratios})
+    ratios = np.exp(coefficients)
+    odds_df = pd.DataFrame({"Feature": feature_names, "Coefficient": coefficients, "Odds ratio": ratios})
     odds_df["Absolute coefficient"] = odds_df["Coefficient"].abs()
     odds_df = odds_df.sort_values("Absolute coefficient", ascending=False)
     print(model_name + " odds ratios")
@@ -226,14 +226,14 @@ rf_rus = RandomForestClassifier(random_state=42)
 rf_rus.fit(X_train_rus, y_train_rus)
 evaluate_model("Random Forest with random undersampling", rf_rus, X_train_rus, y_train_rus, X_test, y_test)
 #tabpfn code
-#tabpfn = TabPFNClassifier(random_state=42, ignore_pretraining_limits=True)
-#tabpfn.fit(X_train,y_train)
-#evaluate_model("TabPFN", tabpfn, X_train, y_train, X_test, y_test)
+tabpfn = TabPFNClassifier(random_state=42, ignore_pretraining_limits=True)
+tabpfn.fit(X_train,y_train)
+evaluate_model("TabPFN", tabpfn, X_train, y_train, X_test, y_test)
 
 #tabpfn with random undersampling
-#tabpfn_rus = TabPFNClassifier(random_state=42, ignore_pretraining_limits=True)
-#tabpfn_rus.fit(X_train_rus,y_train_rus)
-#evaluate_model("TabPFN with random undersampling", tabpfn_rus, X_train_rus, y_train_rus, X_test, y_test)
+tabpfn_rus = TabPFNClassifier(random_state=42, ignore_pretraining_limits=True)
+tabpfn_rus.fit(X_train_rus,y_train_rus)
+evaluate_model("TabPFN with random undersampling", tabpfn_rus, X_train_rus, y_train_rus, X_test, y_test)
 
 #ann 
 tf.random.set_seed(42)

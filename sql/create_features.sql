@@ -68,11 +68,18 @@ SELECT subject_id, hadm_id, AVG(temp_c) AS temperature_mean, MIN(temp_c) AS temp
 FROM temperature_clean 
 WHERE temp_c BETWEEN 30 AND 45 GROUP BY subject_id, hadm_id;
 
+--make the weight table using the input events table with the column patient weight
 CREATE TABLE weight AS
-SELECT subject_id, hadm_id, AVG(valuenum) AS weight_mean
-FROM ICH_ChartEvents_24h 
-WHERE itemid = 224639 AND valuenum BETWEEN 30 AND 300 GROUP BY subject_id, hadm_id;
-
+SELECT f.subject_id, f.hadm_id, AVG(i.patientweight) AS weight_mean
+FROM ICH_First_ICU_Stay f
+JOIN InputEvents i
+    ON f.subject_id = i.subject_id
+   AND f.hadm_id = i.hadm_id
+   AND f.stay_id = i.stay_id
+WHERE i.patientweight BETWEEN 30 AND 300
+  AND datetime(i.starttime) >= datetime(f.intime)
+  AND datetime(i.starttime) < datetime(f.intime, '+24 hours')
+GROUP BY f.subject_id, f.hadm_id;
 
 --calculate the total gcs score from the eye, verbal and motor components
 CREATE TABLE gcs_parts AS
