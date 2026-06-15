@@ -6,7 +6,15 @@ diagnoses = pd.read_csv(r'C:\Users\rosie\Documents\dissertation_start\diagnoses_
 lab_items = pd.read_csv(r'C:\Users\rosie\Documents\dissertation_start\d_labitems.csv')
 chart_items = pd.read_csv(r'C:\Users\rosie\Documents\dissertation_start\d_items.csv')
 lab_items_ids = [51081, 50912, 51265, 51222, 51221, 50971, 51301, 50983, 51279]
-chart_item_ids = [220045, 223761, 224639, 226512, 220179, 220180, 220739, 223900, 223901]
+chart_item_ids = [220045, 223761, 224640, 220179, 220180, 220739, 223900, 223901]
+columns_input = ['subject_id', 'hadm_id', 'stay_id', 'starttime', 'endtime', 'patientweight']
+input_events = pd.read_csv(r'C:\Users\rosie\Documents\dissertation_start\inputevents.csv.gz', compression = 'gzip', usecols = columns_input, chunksize = 100000,low_memory=False)
+for chunk in input_events:
+    chunk['subject_id'] = pd.to_numeric(chunk['subject_id'], errors='coerce')
+    chunk['hadm_id'] = pd.to_numeric(chunk['hadm_id'], errors='coerce')
+    chunk['stay_id'] = pd.to_numeric(chunk['stay_id'], errors='coerce')
+    chunk['patientweight'] = pd.to_numeric(chunk['patientweight'], errors='coerce')
+    chunk.to_sql('InputEvents', conn, if_exists='append', index=False)
 patients = pd.read_csv(r'patients.csv.gz',compression = 'gzip')
 patients = patients[['subject_id','anchor_age','gender']]
 patients.to_sql('patients',conn, if_exists='replace',index=False)
@@ -14,16 +22,16 @@ icu_stays = pd.read_csv(r'C:\Users\rosie\Documents\dissertation_start\icustays.c
 icu_stays = icu_stays[['subject_id','hadm_id','stay_id','intime','los']]
 icu_stays['intime'] = pd.to_datetime(icu_stays['intime'])
 icu_stays.to_sql('icu_stays',conn,if_exists='replace',index=False)
-#columns_chart = ['subject_id','hadm_id','stay_id','itemid','charttime','valuenum','valueuom']
-#chart_events = pd.read_csv(r'C:\Users\rosie\Documents\dissertation_start\chartevents.csv.gz',compression='gzip',usecols = columns_chart,chunksize = 100000,low_memory=False)
-#for chunk in chart_events:
- #   chunk = chunk[chunk['itemid'].isin(chart_item_ids)]
- #   chunk['subject_id'] = pd.to_numeric(chunk['subject_id'],errors = 'coerce') 
- #   chunk['hadm_id'] = pd.to_numeric(chunk['hadm_id'],errors = 'coerce')
- #   chunk['stay_id'] = pd.to_numeric(chunk['stay_id'],errors = 'coerce')
- #   chunk['itemid'] = pd.to_numeric(chunk['itemid'],errors = 'coerce')
- #   chunk['valuenum'] = pd.to_numeric(chunk['valuenum'],errors = 'coerce')
- #   chunk.to_sql('ChartEvents',conn,if_exists = 'append',index=False)
+columns_chart = ['subject_id','hadm_id','stay_id','itemid','charttime','valuenum','valueuom']
+chart_events = pd.read_csv(r'C:\Users\rosie\Documents\dissertation_start\chartevents.csv.gz',compression='gzip',usecols = columns_chart,chunksize = 100000,low_memory=False)
+for chunk in chart_events:
+    chunk = chunk[chunk['itemid'].isin(chart_item_ids)]
+    chunk['subject_id'] = pd.to_numeric(chunk['subject_id'],errors = 'coerce') 
+    chunk['hadm_id'] = pd.to_numeric(chunk['hadm_id'],errors = 'coerce')
+    chunk['stay_id'] = pd.to_numeric(chunk['stay_id'],errors = 'coerce')
+    chunk['itemid'] = pd.to_numeric(chunk['itemid'],errors = 'coerce')
+    chunk['valuenum'] = pd.to_numeric(chunk['valuenum'],errors = 'coerce')
+    chunk.to_sql('ChartEvents',conn,if_exists = 'append',index=False)
 
 
 columns_lab= ['labevent_id','subject_id','hadm_id','specimen_id','itemid','charttime','value','valuenum','valueuom','ref_range_lower','ref_range_upper','flag','comments']

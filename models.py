@@ -164,16 +164,28 @@ def ann_summary(model, X_train_data, X_test_data, model_name):
     plt.title(model_name + " SHAP summary plot")
     plt.tight_layout()
     plt.show()
+
+#odds ratio code for logistic regression 
+def odds_ratios(model, feature_names, model_name):
+    coefficients = model.coef_[0]
+    odds_ratios = np.exp(coefficients)
+    odds_df = pd.DataFrame({"Feature": feature_names, "Coefficient": coefficients, "Odds ratio": odds_ratios})
+    odds_df["Absolute coefficient"] = odds_df["Coefficient"].abs()
+    odds_df = odds_df.sort_values("Absolute coefficient", ascending=False)
+    print(model_name + " odds ratios")
+    print(odds_df)
+    return odds_df
 #Logistic regression code
 logistic = LogisticRegression(max_iter = 1000)
 logistic.fit(X_train_scaled, y_train)
 evaluate_model("Logistic regression", logistic, X_train_scaled, y_train, X_test_scaled, y_test)
+logistic_odds = odds_ratios(logistic, X.columns, "Logistic regression")
 
 #logistic regression with random undersampling 
 logistic_rus = LogisticRegression(max_iter = 1000)
 logistic_rus.fit(X_train_scaled_rus, y_train_rus)
 evaluate_model("Logistic regression with random undersampling", logistic_rus, X_train_scaled_rus, y_train_rus, X_test_scaled, y_test)
-
+logistic_rus_odds = odds_ratios(logistic_rus, X.columns, "Logistic regression with random undersampling")
 #XGBoost  
 xgb = XGBClassifier(random_state = 42, eval_metric = 'logloss')
 xgb.fit(X_train, y_train)
@@ -214,14 +226,14 @@ rf_rus = RandomForestClassifier(random_state=42)
 rf_rus.fit(X_train_rus, y_train_rus)
 evaluate_model("Random Forest with random undersampling", rf_rus, X_train_rus, y_train_rus, X_test, y_test)
 #tabpfn code
-tabpfn = TabPFNClassifier(random_state=42, ignore_pretraining_limits=True)
-tabpfn.fit(X_train,y_train)
-evaluate_model("TabPFN", tabpfn, X_train, y_train, X_test, y_test)
+#tabpfn = TabPFNClassifier(random_state=42, ignore_pretraining_limits=True)
+#tabpfn.fit(X_train,y_train)
+#evaluate_model("TabPFN", tabpfn, X_train, y_train, X_test, y_test)
 
 #tabpfn with random undersampling
-tabpfn_rus = TabPFNClassifier(random_state=42, ignore_pretraining_limits=True)
-tabpfn_rus.fit(X_train_rus,y_train_rus)
-evaluate_model("TabPFN with random undersampling", tabpfn_rus, X_train_rus, y_train_rus, X_test, y_test)
+#tabpfn_rus = TabPFNClassifier(random_state=42, ignore_pretraining_limits=True)
+#tabpfn_rus.fit(X_train_rus,y_train_rus)
+#evaluate_model("TabPFN with random undersampling", tabpfn_rus, X_train_rus, y_train_rus, X_test, y_test)
 
 #ann 
 tf.random.set_seed(42)
@@ -256,6 +268,8 @@ logistic_search.fit(X_train, y_train)
 print("Best parameters logistic regression:", logistic_search.best_params_)
 best_logistic = logistic_search.best_estimator_
 evaluate_model("Tuned logistic regression with random undersampling", best_logistic, X_train, y_train, X_test, y_test)
+tuned_logistic_model = best_logistic.named_steps["model"]
+tuned_logistic_odds = odds_ratios(tuned_logistic_model, X.columns, "Tuned logistic regressiom with random undersampling ")
 
 #xgboost tuning
 xgb_pipeline = Pipeline([("imputer", SimpleImputer(strategy="median")),("rus", RandomUnderSampler(random_state=42)), ("model", XGBClassifier(random_state=42, eval_metric="logloss"))])
