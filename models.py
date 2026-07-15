@@ -29,7 +29,6 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.callbacks import EarlyStopping
 from scikeras.wrappers import KerasClassifier
-from tabpfn_extensions.interpretability.shapiq import get_tabpfn_explainer
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, precision_score, recall_score, average_precision_score, confusion_matrix, brier_score_loss
 from sklearn.calibration import CalibratedClassifierCV, calibration_curve
 conn = sqlite3.connect(r"C:\Users\rosie\Documents\dissertation_start\dissertation_tables.db")
@@ -38,14 +37,14 @@ conn.close()
 #convert gender to binary values
 df['gender'] = df['gender'].map({'M': 1, 'F': 0})
 #separate the predictors and aki labels
-X = df.drop(columns = ['subject_id', 'hadm_id', 'stay_id', 'AKI', 'los'])
+X = df.drop(columns = ['subject_id', 'hadm_id', 'stay_id', 'AKI'])
 y = df['AKI']
 #split on 80/20 for training and testing
-X_train, X_test, y_train, y_test = train_test_split(X,y, test_size = 0.2,random_state = 42, stratify = y)
+X_train_raw, X_test_raw, y_train, y_test = train_test_split(X,y, test_size = 0.2,random_state = 42, stratify = y)
 #use the imputer stuff to fill the missing gaps with the median
 imputer = SimpleImputer(strategy = "median")
-X_train = pd.DataFrame(imputer.fit_transform(X_train),columns = X.columns)
-X_test = pd.DataFrame(imputer.transform(X_test),columns = X.columns)
+X_train = pd.DataFrame(imputer.fit_transform(X_train_raw),columns = X.columns)
+X_test = pd.DataFrame(imputer.transform(X_test_raw),columns = X.columns)
 
 #scale data for logistic regression
 scaler = StandardScaler ()
@@ -152,19 +151,6 @@ def shap_summary_plot(model, X_data, model_name):
     plt.title(model_name + " SHAP summary plot")
     plt.tight_layout()
     plt.show()
-#shap code for the ann model
-def ann_summary(model, X_train_data, X_test_data, model_name):
-    X_train_df = pd.DataFrame(X_train_data, columns = X.columns)
-    X_test_df = pd.DataFrame(X_test_data, columns = X.columns)
-    background = shap.sample(X_train_df, 500, random_state=42)
-    X_sample = shap.sample(X_test_df, 500, random_state=42)
-    explainer = shap.KernelExplainer(lambda x: model.predict(x).flatten(), background)
-    shap_values = explainer.shap_values(X_sample, nsamples = 100)
-    shap.summary_plot(shap_values, X_sample, show=False)
-    plt.title(model_name + " SHAP summary plot")
-    plt.tight_layout()
-    plt.show()
-
 #odds ratio code for logistic regression 
 def odds_ratios(model, feature_names, model_name):
     coefficients = model.coef_[0]
@@ -264,10 +250,10 @@ logistic_pipeline = Pipeline([("imputer", SimpleImputer(strategy="median")),("sc
 logistic_params = {"model__C": [0.01, 0.1, 1, 10, 100], "model__solver": ["lbfgs", "liblinear"]}
 #search for best logistic regression settings
 logistic_search = RandomizedSearchCV(estimator=logistic_pipeline, param_distributions=logistic_params, n_iter=10, cv=5, scoring="roc_auc", random_state=42, n_jobs=-1)
-logistic_search.fit(X_train, y_train)
+logistic_search.fit(X_train_raw, y_train)
 print("Best parameters logistic regression:", logistic_search.best_params_)
 best_logistic = logistic_search.best_estimator_
-evaluate_model("Tuned logistic regression with random undersampling", best_logistic, X_train, y_train, X_test, y_test)
+evaluate_model("Tuned logistic regression with random undersampling", best_logistic, X_train_raw, y_train, X_test_raw, y_test)
 tuned_logistic_model = best_logistic.named_steps["model"]
 tuned_logistic_odds = odds_ratios(tuned_logistic_model, X.columns, "Tuned logistic regressiom with random undersampling ")
 
@@ -277,20 +263,20 @@ xgb_pipeline = Pipeline([("imputer", SimpleImputer(strategy="median")),("rus", R
 xgb_params = {"model__n_estimators": [100, 200, 300], "model__max_depth": [4, 6, 8], "model__learning_rate": [0.01, 0.05, 0.1], "model__subsample": [0.8, 1.0], "model__colsample_bytree": [0.8, 1.0], "model__min_child_weight": [1, 3, 5], "model__gamma": [0, 0.1, 0.3]}
 #search for the best xgboost settings
 xgb_search = RandomizedSearchCV(estimator=xgb_pipeline, param_distributions=xgb_params, n_iter=20, cv=5, scoring="roc_auc", random_state=42, n_jobs=-1)
-xgb_search.fit(X_train, y_train)
+xgb_search.fit(X_train_raw, y_train)
 print("Best XGBoost parameters:", xgb_search.best_params_)
 best_xgb = xgb_search.best_estimator_
-evaluate_model("Tuned XGBoost model with random undersampling", best_xgb, X_train, y_train, X_test, y_test)
+evaluate_model("Tuned XGBoost model with random undersampling", best_xgb, X_train_raw, y_train, X_test_raw, y_test)
 
 #catboost tuning
 cat_pipeline = Pipeline([("imputer", SimpleImputer(strategy="median")),("rus", RandomUnderSampler(random_state=42)), ("model", CatBoostClassifier(random_state=42, verbose=0))])
 cat_params = {"model__iterations": [100, 200, 300], "model__depth": [4, 6, 8], "model__learning_rate": [0.01, 0.05, 0.1], "model__l2_leaf_reg": [1, 3, 5, 7]}
 #search for best catboost settings
 cat_search = RandomizedSearchCV(estimator=cat_pipeline, param_distributions=cat_params, n_iter=20, cv=5, scoring="roc_auc", random_state=42, n_jobs=-1)
-cat_search.fit(X_train, y_train)
+cat_search.fit(X_train_raw, y_train)
 print("Best CatBoost parameters:", cat_search.best_params_)
 best_cat = cat_search.best_estimator_
-evaluate_model("Tuned CatBoost model with random undersampling", best_cat, X_train, y_train, X_test, y_test)
+evaluate_model("Tuned CatBoost model with random undersampling", best_cat, X_train_raw, y_train, X_test_raw, y_test)
 
 #lightgbm tuning
 lgbm_pipeline = Pipeline([("imputer", SimpleImputer(strategy="median")),("rus", RandomUnderSampler(random_state=42)), ("model", LGBMClassifier(random_state=42, verbose=-1))])
@@ -300,10 +286,10 @@ lgbm_pipeline.set_output(transform="pandas")
 lgbm_params = {"model__n_estimators": [100, 200, 300], "model__num_leaves": [31, 63, 127],"model__learning_rate": [0.01, 0.05, 0.1], "model__max_depth": [-1, 5, 10]}
 #search for best lgbm settings
 lgbm_search = RandomizedSearchCV(estimator=lgbm_pipeline, param_distributions=lgbm_params, n_iter=20, cv=5, scoring="roc_auc", random_state=42, n_jobs=-1)
-lgbm_search.fit(X_train, y_train)
+lgbm_search.fit(X_train_raw, y_train)
 print("Best LightGBM parameters:", lgbm_search.best_params_)
 best_lgbm = lgbm_search.best_estimator_
-evaluate_model("Tuned LightGBM with random undersampling", best_lgbm, X_train, y_train, X_test, y_test)
+evaluate_model("Tuned LightGBM with random undersampling", best_lgbm, X_train_raw, y_train, X_test_raw, y_test)
 
 #random forest tuning
 rf_pipeline = Pipeline([("imputer", SimpleImputer(strategy="median")),("rus", RandomUnderSampler(random_state=42)), ("model", RandomForestClassifier(random_state=42))])
@@ -311,46 +297,47 @@ rf_pipeline = Pipeline([("imputer", SimpleImputer(strategy="median")),("rus", Ra
 rf_params = {"model__n_estimators": [100, 200, 300], "model__max_depth": [None, 5, 10, 20], "model__max_features": ["sqrt", "log2"], "model__min_samples_split": [2, 5, 10], "model__min_samples_leaf": [1, 2, 4]}
 #search for the best settings 
 rf_search = RandomizedSearchCV(estimator=rf_pipeline, param_distributions=rf_params, n_iter=20, cv=5, scoring="roc_auc", random_state=42, n_jobs=-1)
-rf_search.fit(X_train, y_train)
+rf_search.fit(X_train_raw, y_train)
 print("Best random forest parameters:", rf_search.best_params_)
 best_rf = rf_search.best_estimator_
-evaluate_model("Tuned Random Forest with random undersampling", best_rf, X_train, y_train, X_test, y_test)
+evaluate_model("Tuned Random Forest with random undersampling", best_rf, X_train_raw, y_train, X_test_raw, y_test)
 #ann tuning
-#function that creates the ANN model
-def create_ann_model(optimizer='adam', activation='relu'):
+#create ANN
+def create_ann_model(optimizer="adam", activation="relu"):
     model = Sequential()
-    model.add(Dense(64, input_shape=(X_train_scaled_rus.shape[1],), activation=activation))
+    model.add(Dense(64, input_shape=(X.shape[1],),activation=activation))
     model.add(Dense(32, activation=activation))
-    model.add(Dense(1, activation='sigmoid'))
-    model.compile(optimizer=optimizer, loss='binary_crossentropy')
+    model.add(Dense(1, activation="sigmoid"))
+    model.compile(optimizer=optimizer, loss="binary_crossentropy")
     return model
-#turn the Keras model into a sklearn estimator
-ann_model = KerasClassifier(model=create_ann_model, verbose=0)
-#parameters to try for ANN
-ann_params = {"model__optimizer": ["adam", "sgd"], "model__activation": ["relu", "tanh"], "epochs": [30, 50], "batch_size": [16, 32]}
+#put imputation scaling and undersampling in pipeline
+ann_pipeline = Pipeline([("imputer", SimpleImputer(strategy="median")), ("scaler", StandardScaler()), ("rus", RandomUnderSampler(random_state=42)),("model", KerasClassifier(model=create_ann_model, verbose=0, random_state=42))])
+#parameters to test
+ann_params = {"model__model__optimizer": ["adam", "sgd"], "model__model__activation": ["relu", "tanh"], "model__epochs": [30, 50], "model__batch_size": [16, 32]}
 #random search for ANN
-ann_search = RandomizedSearchCV(estimator=ann_model, param_distributions=ann_params, n_iter=10, cv=5, scoring="roc_auc", random_state=42, n_jobs=1)
-ann_search.fit(X_train_scaled_rus, y_train_rus)
+ann_search = RandomizedSearchCV(estimator=ann_pipeline, param_distributions=ann_params, n_iter=10, cv=5, scoring="roc_auc", random_state=42, n_jobs=1)
+ann_search.fit(X_train_raw, y_train)
 print("Best ANN parameters:", ann_search.best_params_)
 best_ann = ann_search.best_estimator_
-evaluate_ann("Tuned ANN with random undersampling", best_ann, X_train_scaled_rus, y_train_rus, X_test_scaled, y_test)
+evaluate_model("Tuned ANN with random undersampling", best_ann, X_train_raw, y_train, X_test_raw, y_test)
 #tabpfn with random undersampling inside a pipeline but not tuned
 tabpfn_pipeline = Pipeline([("imputer", SimpleImputer(strategy="median")),("rus", RandomUnderSampler(random_state=42)), ("model", TabPFNClassifier(random_state=42, ignore_pretraining_limits=True))])
-tabpfn_pipeline.fit(X_train, y_train)
-evaluate_model("TabPFN with random undersampling pipeline", tabpfn_pipeline, X_train, y_train, X_test, y_test)
+tabpfn_pipeline.fit(X_train_raw, y_train)
+evaluate_model("TabPFN with random undersampling pipeline", tabpfn_pipeline, X_train_raw, y_train, X_test_raw, y_test)
 
 #add the calibration to the tuned models 
-calibrated_logistic = calibrate_and_evaluate_model("Tuned logistic regression with random undersampling", best_logistic, X_train,y_train, X_test, y_test)
-calibrated_xgb = calibrate_and_evaluate_model("Tuned XGBoost with random undersampling", best_xgb, X_train, y_train, X_test, y_test)
-calibrated_cat = calibrate_and_evaluate_model("Tuned CatBoost with random undersampling", best_cat, X_train, y_train, X_test, y_test)
-calibrated_lgbm = calibrate_and_evaluate_model("Tuned LightGBM with random undersampling", best_lgbm, X_train, y_train, X_test, y_test)
-calibrated_rf = calibrate_and_evaluate_model("Tuned Random Forest with random undersampling", best_rf, X_train, y_train, X_test, y_test)
-calibrated_tabpfn = calibrate_and_evaluate_model("TabPFN with random undersampling pipeline", tabpfn_pipeline, X_train, y_train, X_test, y_test)
+calibrated_logistic = calibrate_and_evaluate_model("Tuned logistic regression with random undersampling", best_logistic, X_train_raw,y_train, X_test_raw, y_test)
+calibrated_xgb = calibrate_and_evaluate_model("Tuned XGBoost with random undersampling", best_xgb, X_train_raw, y_train, X_test_raw, y_test)
+calibrated_cat = calibrate_and_evaluate_model("Tuned CatBoost with random undersampling", best_cat, X_train_raw, y_train, X_test_raw, y_test)
+calibrated_lgbm = calibrate_and_evaluate_model("Tuned LightGBM with random undersampling", best_lgbm, X_train_raw, y_train, X_test_raw, y_test)
+calibrated_rf = calibrate_and_evaluate_model("Tuned Random Forest with random undersampling", best_rf, X_train_raw, y_train, X_test_raw, y_test)
+calibrated_tabpfn = calibrate_and_evaluate_model("TabPFN with random undersampling", tabpfn_pipeline, X_train_raw, y_train, X_test_raw, y_test)
+calibrated_ann = calibrate_and_evaluate_model("Tuned ANN with random undersampling", best_ann, X_train_raw, y_train, X_test_raw, y_test)
 
-#SHAP interpretation for tree based models
-ann_summary(ann_rus, X_train_scaled_rus, X_test_scaled, "ANN with random undersampling") 
-ann_summary(best_ann.model_, X_train_scaled_rus, X_test_scaled, "Tuned ANN with random undersampling")
-shap_summary_plot(best_cat.named_steps["model"], X_test, "Tuned CatBoost with random undersampling")
-shap_summary_plot(best_rf.named_steps["model"], X_test, "Tuned Random Forest with random undersampling")
-shap_summary_plot(best_xgb.named_steps["model"],X_test, "Tuned XGBoost with random undersampling")
-shap_summary_plot(best_lgbm.named_steps["model"], X_test, "Tuned LightGBM with random undersampling")
+#SHAP for tree models
+X_test_cat_shap = pd.DataFrame(best_cat.named_steps["imputer"].transform(X_test_raw), columns=X_test_raw.columns, index=X_test_raw.index)
+X_test_rf_shap = pd.DataFrame(best_rf.named_steps["imputer"].transform(X_test_raw), columns=X_test_raw.columns, index=X_test_raw.index)
+X_test_xgb_shap = pd.DataFrame(best_xgb.named_steps["imputer"].transform(X_test_raw), columns=X_test_raw.columns, index=X_test_raw.index)
+shap_summary_plot(best_cat.named_steps["model"], X_test_cat_shap, "Tuned CatBoost with random undersampling")
+shap_summary_plot(best_rf.named_steps["model"], X_test_rf_shap, "Tuned Random Forest with random undersampling")
+shap_summary_plot(best_xgb.named_steps["model"],X_test_xgb_shap, "Tuned XGBoost with random undersampling")

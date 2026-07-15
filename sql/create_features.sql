@@ -1,43 +1,38 @@
 -- create summary tables for lab features for first 24 hours of submission including only realistic values
 CREATE TABLE platelets AS
-SELECT subject_id, hadm_id, AVG(valuenum) AS platelets_mean, MIN(valuenum) AS platelets_min, MAX(valuenum) AS platelets_max
+SELECT subject_id, hadm_id, AVG(valuenum) AS platelets_mean
 FROM ICH_LabEvents_24h 
 WHERE itemid = 51265 AND valuenum BETWEEN 1 AND 1500 GROUP BY subject_id, hadm_id;
 
 CREATE TABLE haemoglobin AS
-SELECT subject_id, hadm_id, AVG(valuenum) AS haemoglobin_mean, MIN(valuenum) AS haemoglobin_min, MAX(valuenum) AS haemoglobin_max
+SELECT subject_id, hadm_id, AVG(valuenum) AS haemoglobin_mean
 FROM ICH_LabEvents_24h 
 WHERE itemid = 51222 AND valuenum BETWEEN 2 AND 25 GROUP BY subject_id, hadm_id;
 
-CREATE TABLE haematocrit AS
-SELECT subject_id, hadm_id, AVG(valuenum) AS haematocrit_mean, MIN(valuenum) AS haematocrit_min, MAX(valuenum) AS haematocrit_max
-FROM ICH_LabEvents_24h 
-WHERE itemid = 51221 AND valuenum BETWEEN 5 AND 70 GROUP BY subject_id, hadm_id;
-
 CREATE TABLE potassium AS
-SELECT subject_id, hadm_id, AVG(valuenum) AS potassium_mean, MIN(valuenum) AS potassium_min, MAX(valuenum) AS potassium_max
+SELECT subject_id, hadm_id, AVG(valuenum) AS potassium_mean
 FROM ICH_LabEvents_24h 
 WHERE itemid = 50971 AND valuenum BETWEEN 1 AND 10 GROUP BY subject_id, hadm_id;
 
 CREATE TABLE sodium AS
-SELECT subject_id, hadm_id,AVG(valuenum) AS sodium_mean, MIN(valuenum) AS sodium_min, MAX(valuenum) AS sodium_max
+SELECT subject_id, hadm_id,AVG(valuenum) AS sodium_mean
 FROM ICH_LabEvents_24h 
 WHERE itemid = 50983 AND valuenum BETWEEN 100 AND 180 GROUP BY subject_id, hadm_id;
 
 CREATE TABLE wbc AS
-SELECT subject_id, hadm_id, AVG(valuenum) AS wbc_mean, MIN(valuenum) AS wbc_min, MAX(valuenum) AS wbc_max
-FROM ICH_LabEvents_24h 
+SELECT subject_id, hadm_id, AVG(valuenum) AS wbc_mean
+FROM ICH_LabEvents_24h
 WHERE itemid = 51301 AND valuenum BETWEEN 0.1 AND 300 GROUP BY subject_id, hadm_id;
 
 CREATE TABLE rbc AS
-SELECT subject_id, hadm_id, AVG(valuenum) AS rbc_mean, MIN(valuenum) AS rbc_min, MAX(valuenum) AS rbc_max
+SELECT subject_id, hadm_id, AVG(valuenum) AS rbc_mean
 FROM ICH_LabEvents_24h 
 WHERE itemid = 51279 AND valuenum BETWEEN 1 AND 8 GROUP BY subject_id, hadm_id;
 
 -- create summary tables for vital signs from first 24 hours of icu admission
 
 CREATE TABLE heart_rate AS
-SELECT subject_id, hadm_id, AVG(valuenum) AS heart_rate_mean, MIN(valuenum) AS heart_rate_min, MAX(valuenum) AS heart_rate_max
+SELECT subject_id, hadm_id, AVG(valuenum) AS heart_rate_mean, MAX(valuenum) AS heart_rate_max
 FROM ICH_ChartEvents_24h 
 WHERE itemid = 220045 AND valuenum BETWEEN 20 AND 250 GROUP BY subject_id, hadm_id;
 
@@ -64,7 +59,7 @@ WHERE itemid = 223761 AND valuenum IS NOT NULL;
 
 -- create summary temperature table
 CREATE TABLE temperature AS
-SELECT subject_id, hadm_id, AVG(temp_c) AS temperature_mean, MIN(temp_c) AS temperature_min, MAX(temp_c) AS temperature_max
+SELECT subject_id, hadm_id, AVG(temp_c) AS temperature_mean, MIN(temp_c) AS temperature_min
 FROM temperature_clean 
 WHERE temp_c BETWEEN 30 AND 45 GROUP BY subject_id, hadm_id;
 

@@ -26,11 +26,11 @@ chart_before = pd.read_sql_query("SELECT COUNT(*) FROM ICH_ChartEvents_24h c JOI
 print("Chart readings before icu admission:", chart_before.iloc[0]['COUNT(*)'])
 
 #check for any unrealistic temperatures
-temperature = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE temperature_min < 30 OR temperature_max > 45", conn)
+temperature = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE temperature_min < 30", conn)
 print("Unrealistic temperature count: ", temperature.iloc[0]['COUNT(*)'])
 
 #check for any unrealistic heart rates
-heart_rate = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE heart_rate_min <20 OR heart_rate_max > 250",conn)
+heart_rate = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE heart_rate_max > 250",conn)
 print("Unrealistic heart rate readings: ", heart_rate.iloc[0]['COUNT(*)'])
 
 #check for any unrealistic blood pressure values 
@@ -53,7 +53,7 @@ print("Number of patients below 18:", adults.iloc[0]['COUNT(*)'])
 aki_label = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE AKI is NULL", conn)
 print("Number of patients who do not have an AKI label: ", aki_label.iloc[0]['COUNT(*)'])
 #check missing heart rate values
-heart_rate_null = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE heart_rate_mean IS NULL OR heart_rate_min IS NULL OR heart_rate_max IS NULL", conn)
+heart_rate_null = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE heart_rate_mean IS NULL OR heart_rate_max IS NULL", conn)
 print("Missing heart rate values:", heart_rate_null.iloc[0]['COUNT(*)'])
 
 #check missing systolic blood pressure values
@@ -65,7 +65,7 @@ dbp_null = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE dbp_mean 
 print("Missing diastolic BP values:", dbp_null.iloc[0]['COUNT(*)'])
 
 #check missing temperature values
-temperature_null = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE temperature_mean IS NULL OR temperature_min IS NULL OR temperature_max IS NULL", conn)
+temperature_null = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE temperature_mean IS NULL OR temperature_min IS NULL", conn)
 print("Missing temperature values:", temperature_null.iloc[0]['COUNT(*)'])
 
 #check missing weight values
@@ -77,44 +77,32 @@ gcs_null = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE gcs_min I
 print("Missing GCS values:", gcs_null.iloc[0]['COUNT(*)'])
 
 #check missing platelet values
-platelets_null = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE platelets_mean IS NULL OR platelets_min IS NULL OR platelets_max IS NULL", conn)
+platelets_null = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE platelets_mean IS NULL", conn)
 print("Missing platelet values:", platelets_null.iloc[0]['COUNT(*)'])
 
 #check missing haemoglobin values
-haemoglobin_null = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE haemoglobin_mean IS NULL OR haemoglobin_min IS NULL OR haemoglobin_max IS NULL", conn)
+haemoglobin_null = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE haemoglobin_mean IS NULL", conn)
 print("Missing haemoglobin values:", haemoglobin_null.iloc[0]['COUNT(*)'])
 
-#check missing haematocrit values
-haematocrit_null = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE haematocrit_mean IS NULL OR haematocrit_min IS NULL OR haematocrit_max IS NULL", conn)
-print("Missing haematocrit values:", haematocrit_null.iloc[0]['COUNT(*)'])
-
 #check missing potassium values
-potassium_null = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE potassium_mean IS NULL OR potassium_min IS NULL OR potassium_max IS NULL", conn)
+potassium_null = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE potassium_mean IS NULL", conn)
 print("Missing potassium values:", potassium_null.iloc[0]['COUNT(*)'])
 
 #check missing sodium values
-sodium_null = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE sodium_mean IS NULL OR sodium_min IS NULL OR sodium_max IS NULL", conn)
+sodium_null = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE sodium_mean IS NULL", conn)
 print("Missing sodium values:", sodium_null.iloc[0]['COUNT(*)'])
 
 #check missing white blood cell values
-wbc_null = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE wbc_mean IS NULL OR wbc_min IS NULL OR wbc_max IS NULL", conn)
+wbc_null = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE wbc_mean IS NULL", conn)
 print("Missing white blood cell values:", wbc_null.iloc[0]['COUNT(*)'])
 
 #check missing red blood cell values
-rbc_null = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE rbc_mean IS NULL OR rbc_min IS NULL OR rbc_max IS NULL", conn)
+rbc_null = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE rbc_mean IS NULL", conn)
 print("Missing red blood cell values:", rbc_null.iloc[0]['COUNT(*)'])
 
 #check missing hypertension values
 hypertension_null = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE hypertension_count IS NULL", conn)
 print("Missing hypertension values:", hypertension_null.iloc[0]['COUNT(*)'])
-
-#check missing length of stay values
-los_null = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE los IS NULL", conn)
-print("Missing LOS values:", los_null.iloc[0]['COUNT(*)'])
-
-#check for negative length of stay values
-los_negative = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE los<0",conn)
-print("Negative LOS values: ", los_negative.iloc[0]['COUNT(*)'])
 
 #check for any duplicate patients
 duplicate_patients = pd.read_sql_query("SELECT COUNT(*) FROM (SELECT subject_id FROM Final_Dataset GROUP BY subject_id HAVING COUNT(*) > 1)", conn)
@@ -132,6 +120,54 @@ print("Genders:", gender_values)
 hypertension_negative = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE hypertension_count < 0", conn)
 print("Negative hypertension values:", hypertension_negative.iloc[0]['COUNT(*)'])
 
-#check LOS is not extremely high
-los_extreme = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE los > 365", conn)
-print("Extreme los values:", los_extreme.iloc[0]['COUNT(*)'])
+#manually checking whether aki labels are correct using a small sample
+#pick 10 patients with aki and 10 without aki
+aki_sample = pd.read_sql_query("SELECT subject_id, hadm_id, stay_id, AKI FROM Final_Dataset WHERE AKI = 1 ORDER BY RANDOM() LIMIT 10", conn)
+no_aki_sample = pd.read_sql_query("SELECT subject_id, hadm_id, stay_id, AKI FROM Final_Dataset WHERE AKI = 0 ORDER BY RANDOM() LIMIT 10", conn)
+sample = pd.concat([aki_sample, no_aki_sample])
+print("Validation AKI counts:")
+print(sample["AKI"].value_counts())
+stay_ids = sample["stay_id"].tolist()
+#get creatinine values for patients
+sample_creatinine = pd.read_sql_query("SELECT f.subject_id, f.hadm_id, f.stay_id, f.AKI, c.charttime, c.intime, c.valuenum, c.valueuom FROM Final_Dataset f JOIN ICH_Creatinine c ON f.subject_id = c.subject_id AND f.hadm_id = c.hadm_id WHERE c.itemid IN (51081, 50912) AND c.valuenum IS NOT NULL ORDER BY f.stay_id, c.charttime", conn)
+#work out how many hours after icu admission creatinine reading was
+sample_creatinine["charttime"] = pd.to_datetime(sample_creatinine["charttime"])
+sample_creatinine["intime"] = pd.to_datetime(sample_creatinine["intime"])
+sample_creatinine["hours_from_icu"] = (sample_creatinine["charttime"] - sample_creatinine["intime"]).dt.total_seconds()/3600
+sample_creatinine = sample_creatinine[sample_creatinine["stay_id"].isin(stay_ids)]
+
+#only keep readings after icu admission
+sample_creatinine = sample_creatinine[sample_creatinine["hours_from_icu"] >= 0]
+aki_check = []
+for stay_id in sample_creatinine["stay_id"].unique():
+    patient = sample_creatinine[sample_creatinine["stay_id"] == stay_id].copy()
+    patient = patient.sort_values("charttime")
+    aki_label = patient["AKI"].iloc[0]
+    aki_found = 0
+    first_value = None
+    second_value = None
+    creatinine_values = list(patient["valuenum"])
+    times = list(patient["charttime"])
+    hours_from_icu = list(patient["hours_from_icu"])
+    for i in range(len(creatinine_values)):
+        for j in range(i + 1, len(creatinine_values)):
+            hours_between = (times[j] - times[i]).total_seconds()/3600
+            #only count aki if second reading after 24 hours
+            if hours_from_icu[j] > 24:
+                #0.3 rise within 48 hours
+                if hours_between <= 48 and creatinine_values[j] - creatinine_values[i] >= 0.3:
+                    aki_found = 1
+                    first_value = creatinine_values[i]
+                    second_value = creatinine_values[j]
+                #1.5 times rise within 7 days
+                if hours_between <= 7*24 and creatinine_values[j] >= 1.5*creatinine_values[i]:
+                    aki_found = 1
+                    first_value = creatinine_values[i]
+                    second_value = creatinine_values[j]
+    if aki_label == aki_found:
+        check = "Correct label"
+    else:
+        check = "Potentially incorrect"
+    aki_check.append({"stay_id": stay_id, "AKI_label": aki_label, "AKI_found": aki_found, "first_value": first_value, "second_value": second_value, "check": check })
+aki_check = pd.DataFrame(aki_check)
+print(aki_check)

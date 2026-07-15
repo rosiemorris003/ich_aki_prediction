@@ -5,6 +5,10 @@ icd_codes = pd.read_csv(r'C:\Users\rosie\Documents\dissertation_start\d_icd_diag
 diagnoses = pd.read_csv(r'C:\Users\rosie\Documents\dissertation_start\diagnoses_icd.csv')
 lab_items = pd.read_csv(r'C:\Users\rosie\Documents\dissertation_start\d_labitems.csv')
 chart_items = pd.read_csv(r'C:\Users\rosie\Documents\dissertation_start\d_items.csv')
+icu_stays = pd.read_csv(r'C:\Users\rosie\Documents\dissertation_start\icustays.csv.gz',compression ='gzip' )
+icu_stays = icu_stays[['subject_id','hadm_id','stay_id','intime','los']]
+icu_stays['intime'] = pd.to_datetime(icu_stays['intime'])
+icu_stays.to_sql('icu_stays',conn,if_exists='replace',index=False)
 lab_items_ids = [51081, 50912, 51265, 51222, 51221, 50971, 51301, 50983, 51279]
 chart_item_ids = [220045, 223761, 224640, 220179, 220180, 220739, 223900, 223901]
 columns_input = ['subject_id', 'hadm_id', 'stay_id', 'starttime', 'endtime', 'patientweight']
@@ -18,10 +22,7 @@ for chunk in input_events:
 patients = pd.read_csv(r'patients.csv.gz',compression = 'gzip')
 patients = patients[['subject_id','anchor_age','gender']]
 patients.to_sql('patients',conn, if_exists='replace',index=False)
-icu_stays = pd.read_csv(r'C:\Users\rosie\Documents\dissertation_start\icustays.csv.gz',compression ='gzip' )
-icu_stays = icu_stays[['subject_id','hadm_id','stay_id','intime','los']]
-icu_stays['intime'] = pd.to_datetime(icu_stays['intime'])
-icu_stays.to_sql('icu_stays',conn,if_exists='replace',index=False)
+
 columns_chart = ['subject_id','hadm_id','stay_id','itemid','charttime','valuenum','valueuom']
 chart_events = pd.read_csv(r'C:\Users\rosie\Documents\dissertation_start\chartevents.csv.gz',compression='gzip',usecols = columns_chart,chunksize = 100000,low_memory=False)
 for chunk in chart_events:
