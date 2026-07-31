@@ -47,7 +47,7 @@ age_features = ["anchor_age"]
 gender_features = ["gender"]
 hypertension_features = ["hypertension_count"]
 weight_features = ["weight_mean"]
-X = df.drop(columns=["subject_id", "hadm_id", "stay_id", "AKI"]+weight_features)
+X = df.drop(columns=["subject_id", "hadm_id", "stay_id", "AKI"])
 y = df["AKI"]
 #split on 80/20 for training and testing
 X_train, X_test, y_train, y_test = train_test_split(X,y, test_size = 0.2,random_state = 42, stratify = y)
