@@ -1,4 +1,4 @@
-#stops warnings being printed
+#stops unnecessary warnings being printed
 import warnings
 warnings.filterwarnings("ignore")
 #needed for tabpfn
@@ -8,10 +8,7 @@ os.environ["TABPFN_TOKEN"] = "KEY"
 os.environ["TABPFN_ALLOW_CPU_LARGE_DATASET"] = "1"
 import sqlite3
 import pandas as pd
-import matplotlib.pyplot as plt
-import shap
-from sklearn.model_selection import train_test_split, RandomizedSearchCV
-#import models
+from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from xgboost import XGBClassifier
 from catboost import CatBoostClassifier
@@ -20,19 +17,13 @@ from sklearn.ensemble import RandomForestClassifier
 from tabpfn import TabPFNClassifier
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
-from imblearn.under_sampling import RandomUnderSampler
-from imblearn.pipeline import Pipeline
 import tensorflow as tf
-import random
 import numpy as np
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.callbacks import EarlyStopping
-from scikeras.wrappers import KerasClassifier
-from statsmodels.stats.outliers_influence import variance_inflation_factor
-from statsmodels.tools.tools import add_constant
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, precision_score, recall_score, average_precision_score, confusion_matrix, brier_score_loss
-from sklearn.calibration import CalibratedClassifierCV, calibration_curve
+#load final dataset from SQLite database
 conn = sqlite3.connect(r"C:\Users\rosie\Documents\dissertation_start\dissertation_tables.db")
 df = pd.read_sql_query("SELECT * FROM final_dataset",conn)
 conn.close()
@@ -47,16 +38,17 @@ age_features = ["anchor_age"]
 gender_features = ["gender"]
 hypertension_features = ["hypertension_count"]
 weight_features = ["weight_mean"]
+#add chosen feature group to columns being removed
 X = df.drop(columns=["subject_id", "hadm_id", "stay_id", "AKI"])
 y = df["AKI"]
 #split on 80/20 for training and testing
 X_train, X_test, y_train, y_test = train_test_split(X,y, test_size = 0.2,random_state = 42, stratify = y)
-#use the imputer stuff to fill the missing gaps with the median
+#use the imputer to fill the missing values with the median from the training data
 imputer = SimpleImputer(strategy = "median")
 X_train = pd.DataFrame(imputer.fit_transform(X_train),columns = X.columns)
 X_test = pd.DataFrame(imputer.transform(X_test),columns = X.columns)
 
-#scale data for logistic regression
+#scale data for logistic regression and the ann
 scaler = StandardScaler ()
 X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)
@@ -155,10 +147,14 @@ evaluate_model("TabPFN", tabpfn, X_train, y_train, X_test, y_test)
 tf.random.set_seed(42)
 np.random.seed(42)
 ann = Sequential()
+#first hidden layer
 ann.add(Dense(64, input_shape=(X_train_scaled.shape[1],), activation='relu'))
+#second hidden layer
 ann.add(Dense(32, activation = 'relu'))
+#output of probability of aki
 ann.add(Dense(1, activation = 'sigmoid'))
 ann.compile(optimizer = 'adam', loss = 'binary_crossentropy')
+#stop training early if validation loss stops improving
 ann.fit(X_train_scaled, y_train, epochs = 30, batch_size = 32, verbose = 1, validation_split = 0.1, 
         callbacks = [EarlyStopping(patience = 10, restore_best_weights = True, monitor = 'val_loss')])
 evaluate_ann("ANN", ann, X_train_scaled, y_train, X_test_scaled, y_test)

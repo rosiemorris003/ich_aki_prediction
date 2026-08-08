@@ -26,15 +26,15 @@ chart_before = pd.read_sql_query("SELECT COUNT(*) FROM ICH_ChartEvents_24h c JOI
 print("Chart readings before icu admission:", chart_before.iloc[0]['COUNT(*)'])
 
 #check for any unrealistic temperatures
-temperature = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE temperature_min < 30", conn)
+temperature = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE temperature_min < 20 OR temperature_mean>50", conn)
 print("Unrealistic temperature count: ", temperature.iloc[0]['COUNT(*)'])
 
 #check for any unrealistic heart rates
-heart_rate = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE heart_rate_max > 250",conn)
+heart_rate = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE heart_rate_max > 300 OR heart_rate_mean<10",conn)
 print("Unrealistic heart rate readings: ", heart_rate.iloc[0]['COUNT(*)'])
 
 #check for any unrealistic blood pressure values 
-blood_pressure = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE sbp_min <30 OR sbp_max >300 or dbp_min <10 or dbp_max >200",conn)
+blood_pressure = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE sbp_min <20 OR sbp_max >350 or dbp_min <5 or dbp_max >250",conn)
 print("Unrealistic blood pressure readings: ", blood_pressure.iloc[0]['COUNT(*)'])
 
 #check gcs is in between 3-15
@@ -42,7 +42,7 @@ gcs = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE gcs_min > 15 o
 print("Unrealistic GCS values: ", gcs.iloc[0]['COUNT(*)'])
 
 #check the weight values are realistic
-weight = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE weight_mean < 30 or weight_mean >300", conn)
+weight = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE weight_mean < 20 or weight_mean >400", conn)
 print("Unrealistic weight values: ", weight.iloc[0]['COUNT(*)'])
 
 #check only adults are included 
@@ -117,8 +117,8 @@ gender_values = pd.read_sql_query("SELECT gender, COUNT(*) FROM Final_Dataset GR
 print("Genders:", gender_values)
 
 #check hypertension is not negative
-hypertension_negative = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE hypertension_count < 0", conn)
-print("Negative hypertension values:", hypertension_negative.iloc[0]['COUNT(*)'])
+hypertension_negative = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset WHERE hypertension_count < 0 OR hypertension_count >1", conn)
+print("Invalid hypertension values:", hypertension_negative.iloc[0]['COUNT(*)'])
 
 #manually checking whether aki labels are correct using a small sample
 #pick 10 patients with aki and 10 without aki

@@ -11,7 +11,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import shap
 from sklearn.model_selection import train_test_split, RandomizedSearchCV
-#import models
 from sklearn.linear_model import LogisticRegression
 from xgboost import XGBClassifier
 from catboost import CatBoostClassifier
@@ -23,7 +22,6 @@ from sklearn.preprocessing import StandardScaler
 from imblearn.under_sampling import RandomUnderSampler
 from imblearn.pipeline import Pipeline
 import tensorflow as tf
-import random
 import numpy as np
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
@@ -31,6 +29,7 @@ from tensorflow.keras.callbacks import EarlyStopping
 from scikeras.wrappers import KerasClassifier
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, precision_score, recall_score, average_precision_score, confusion_matrix, brier_score_loss
 from sklearn.calibration import CalibratedClassifierCV, calibration_curve
+#load final dataset from SQLite database
 conn = sqlite3.connect(r"C:\Users\rosie\Documents\dissertation_start\dissertation_tables.db")
 df = pd.read_sql_query("SELECT * FROM final_dataset",conn)
 conn.close()
@@ -41,24 +40,47 @@ X = df.drop(columns = ['subject_id', 'hadm_id', 'stay_id', 'AKI'])
 y = df['AKI']
 #split on 80/20 for training and testing
 X_train_raw, X_test_raw, y_train, y_test = train_test_split(X,y, test_size = 0.2,random_state = 42, stratify = y)
-#use the imputer stuff to fill the missing gaps with the median
+#use the imputer to fill the missing values with the median from the training data
 imputer = SimpleImputer(strategy = "median")
 X_train = pd.DataFrame(imputer.fit_transform(X_train_raw),columns = X.columns)
 X_test = pd.DataFrame(imputer.transform(X_test_raw),columns = X.columns)
 
-#scale data for logistic regression
+#scale data for logistic regression and the ann
 scaler = StandardScaler ()
 X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)
-#use random undersampling to reduce majority class
+#use random undersampling to reduce majority class on the training data only
 randomundersampler = RandomUnderSampler(random_state=42)
 X_train_rus, y_train_rus = randomundersampler.fit_resample(X_train, y_train)
 X_train_scaled_rus = scaler.transform(X_train_rus)
+#store the model results so they can be compared later
 results = []
+#calculating a 95% confidence interval for ROC-AUC using bootstrap samples
+def confidence_interval(y_test, y_prob, n_bootstraps=2000):
+    #use same seed so bootstrap results can be reproduced
+    np.random.seed(42)
+    auc_scores = []
+    for i in range(n_bootstraps):
+        #sample test set with replacement
+        sample_indices = np.random.choice(len(y_test), size = len(y_test), replace = True)
+        y_sample = np.array(y_test)[sample_indices]
+        prob_sample = np.array(y_prob)[sample_indices]
+        #roc - auc needs both classes present
+        if len(np.unique(y_sample)) == 2:
+            auc = roc_auc_score(y_sample, prob_sample)
+            auc_scores.append(auc)
+    #use 2.5th and 97.5th for 95% interval
+    lower_confidence = np.percentile(auc_scores, 2.5)
+    upper_confidence = np.percentile(auc_scores, 97.5)
+    return lower_confidence, upper_confidence
 #to calculate and print the metrics, both training and testing for overfittig
 def evaluate_model(name, model, X_train, y_train, X_test, y_test,model_name, model_type, threshold = 0.5):
+    #get predicted probabilities
     y_train_prob = model.predict_proba(X_train)[:,1]
     y_test_prob = model.predict_proba(X_test)[:,1]
+    #calculate the roc-auc confidence interval on test set
+    lower_confidence, upper_confidence = confidence_interval(y_test, y_test_prob)
+    #convert the probabilities into class predictions
     y_train_pred = (y_train_prob >= threshold).astype(int)
     y_test_pred = (y_test_prob >= threshold).astype(int)
     print(name)
@@ -84,7 +106,9 @@ def evaluate_model(name, model, X_train, y_train, X_test, y_test,model_name, mod
     print("Testing Specificity:", testing_specificity)
     print("Training Brier Score:", brier_score_loss(y_train, y_train_prob))
     print("Testing Brier Score:", brier_score_loss(y_test, y_test_prob))
+    print("95% ROC-AUC confidence interval:", lower_confidence, "-", upper_confidence)
     print(" ")
+    #save test results for final comparison
     results.append({
         "Model": model_name,
         "Type": model_type,
@@ -95,11 +119,16 @@ def evaluate_model(name, model, X_train, y_train, X_test, y_test,model_name, mod
         "Precision": precision_score(y_test, y_test_pred),
         "Recall": recall_score(y_test, y_test_pred),
         "Specificity": testing_specificity,
-        "Brier Score": brier_score_loss(y_test, y_test_prob)})
+        "Brier Score": brier_score_loss(y_test, y_test_prob),
+        "ROC-AUC confidence interval lower": lower_confidence,
+        "ROC-AUC confidence interval upper": upper_confidence})
 #ann evaulate model 
 def evaluate_ann(name, model, X_train, y_train, X_test, y_test, model_name, model_type):
     y_train_prob = model.predict(X_train).flatten()
     y_test_prob = model.predict(X_test).flatten()
+    #calculate roc-auc confidence interval
+    lower_confidence, upper_confidence = confidence_interval(y_test, y_test_prob)
+    #convert probabilities into class predictions
     y_train_pred = (y_train_prob >= 0.5).astype(int)
     y_test_pred = (y_test_prob >= 0.5).astype(int)
     print(name)
@@ -123,7 +152,9 @@ def evaluate_ann(name, model, X_train, y_train, X_test, y_test, model_name, mode
     print("Testing Specificity:", testing_specificity)
     print("Training Brier Score:", brier_score_loss(y_train, y_train_prob))
     print("Testing Brier Score:", brier_score_loss(y_test, y_test_prob))
+    print("95% ROC-AUC confidence interval:", lower_confidence, "-", upper_confidence)
     print(" ")
+    #save ann test results with the other models
     results.append({
         "Model": model_name,
         "Type": model_type,
@@ -134,17 +165,21 @@ def evaluate_ann(name, model, X_train, y_train, X_test, y_test, model_name, mode
         "Precision": precision_score(y_test, y_test_pred),
         "Recall": recall_score(y_test, y_test_pred),
         "Specificity": testing_specificity,
-        "Brier Score": brier_score_loss(y_test, y_test_prob)})
+        "Brier Score": brier_score_loss(y_test, y_test_prob),
+        "ROC-AUC confidence interval lower": lower_confidence,
+        "ROC-AUC confidence interval upper": upper_confidence})
 
-#calibrating the models 
+#calibrating the models and create its calibration curve
 def calibrate_and_evaluate_model(name, model, X_train, y_train, X_test, y_test):
-    #using sigmoid calibration 
+    #using sigmoid calibration with 5 fold cross validation
     calibrated_model = CalibratedClassifierCV(estimator=model,method="sigmoid", cv=5)
     calibrated_model.fit(X_train, y_train)
-    #use lower threshold for calibration
+    #evaluate calibrated model using same 0.5 threshold
     evaluate_model(name + " calibrated", calibrated_model, X_train, y_train, X_test, y_test, name, "Calibrated", threshold = 0.5)
+    #get predicted probabilities for calibrated curve
     y_test_prob = calibrated_model.predict_proba(X_test)[:, 1]
     prob_true, prob_pred = calibration_curve(y_test, y_test_prob, n_bins=10)
+    #plot predicted probabilities against observed proportion
     plt.figure(figsize=(6, 6))
     plt.plot(prob_pred, prob_true, marker="o", label=name)
     plt.plot([0, 1], [0, 1], linestyle="--", label="Perfect calibration")
@@ -174,17 +209,20 @@ def shap_summary_plot(model, X_data, model_name):
     plt.title(model_name + " SHAP summary plot")
     plt.tight_layout()
     plt.show()
-#odds ratio code for logistic regression 
+#calculate and rank logistic regression odds ratios
 def odds_ratios(model, feature_names, model_name):
+    #convert model coefficients into odds ratios
     coefficients = model.coef_[0]
     ratios = np.exp(coefficients)
     odds_df = pd.DataFrame({"Feature": feature_names, "Coefficient": coefficients, "Odds ratio": ratios})
+    # rank features by size of their coefficient
     odds_df["Absolute coefficient"] = odds_df["Coefficient"].abs()
     odds_df = odds_df.sort_values("Absolute coefficient", ascending=False)
     print(model_name + " odds ratios")
     print(odds_df)
     return odds_df
-#Logistic regression code
+
+#standard logistic regression
 logistic = LogisticRegression(max_iter = 1000)
 logistic.fit(X_train_scaled, y_train)
 evaluate_model("Logistic regression", logistic, X_train_scaled, y_train, X_test_scaled, y_test, "LR", "Standard")
@@ -195,7 +233,7 @@ logistic_rus = LogisticRegression(max_iter = 1000)
 logistic_rus.fit(X_train_scaled_rus, y_train_rus)
 evaluate_model("Logistic regression with random undersampling", logistic_rus, X_train_scaled_rus, y_train_rus, X_test_scaled, y_test, "LR", "RUS")
 logistic_rus_odds = odds_ratios(logistic_rus, X.columns, "Logistic regression with random undersampling")
-#XGBoost  
+#standard XGBoost  
 xgb = XGBClassifier(random_state = 42, eval_metric = 'logloss')
 xgb.fit(X_train, y_train)
 evaluate_model("XGBoost", xgb, X_train, y_train, X_test, y_test, "XGBoost","Standard")
@@ -205,7 +243,7 @@ xgb_rus = XGBClassifier(random_state = 42, eval_metric = 'logloss')
 xgb_rus.fit(X_train_rus, y_train_rus)
 evaluate_model("XGBoost with random undersampling",xgb_rus, X_train_rus, y_train_rus, X_test, y_test, "XGBoost", "RUS")
 
-#catboost
+#standard catboost
 cat = CatBoostClassifier(random_state = 42, verbose = 0)
 cat.fit(X_train, y_train)
 evaluate_model("CatBoost", cat, X_train, y_train, X_test, y_test, "Catboost", "Standard")
@@ -215,7 +253,7 @@ cat_rus = CatBoostClassifier(random_state = 42, verbose = 0)
 cat_rus.fit(X_train_rus, y_train_rus)
 evaluate_model("CatBoost with random undersampling", cat_rus, X_train_rus, y_train_rus, X_test, y_test, "Catboost", "RUS")
 
-#lightgbm
+#standard lightgbm
 lgbm = LGBMClassifier(random_state = 42)
 lgbm.fit(X_train, y_train)
 evaluate_model("LightGBM", lgbm, X_train, y_train, X_test, y_test, "LightGBM", "Standard")
@@ -225,7 +263,7 @@ lgbm_rus = LGBMClassifier(random_state = 42)
 lgbm_rus.fit(X_train_rus, y_train_rus)
 evaluate_model("LightGBM with random undersampling", lgbm_rus, X_train_rus, y_train_rus, X_test, y_test, "LightGBM", "RUS")
 
-#random forest 
+#standard random forest 
 rf = RandomForestClassifier(random_state=42)
 rf.fit(X_train, y_train)
 evaluate_model("Random Forest", rf, X_train, y_train, X_test, y_test,"Random Forest", "Standard")
@@ -234,24 +272,24 @@ evaluate_model("Random Forest", rf, X_train, y_train, X_test, y_test,"Random For
 rf_rus = RandomForestClassifier(random_state=42)
 rf_rus.fit(X_train_rus, y_train_rus)
 evaluate_model("Random Forest with random undersampling", rf_rus, X_train_rus, y_train_rus, X_test, y_test, "Random Forest", "RUS")
-#tabpfn code
+
+#standard tabpfn 
 tabpfn = TabPFNClassifier(random_state=42, ignore_pretraining_limits=True)
 tabpfn.fit(X_train,y_train)
 evaluate_model("TabPFN", tabpfn, X_train, y_train, X_test, y_test, "TabPFN", "Standard")
 
-#tabpfn with random undersampling
-tabpfn_rus = TabPFNClassifier(random_state=42, ignore_pretraining_limits=True)
-tabpfn_rus.fit(X_train_rus,y_train_rus)
-#evaluate_model("TabPFN with random undersampling", tabpfn_rus, X_train_rus, y_train_rus, X_test, y_test, "TabPFN", "RUS")
-
-#ann 
+#standard ann 
 tf.random.set_seed(42)
 np.random.seed(42)
 ann = Sequential()
+#first hidden layer
 ann.add(Dense(64, input_shape=(X_train_scaled.shape[1],), activation='relu'))
+#second hidden layer
 ann.add(Dense(32, activation = 'relu'))
+#sigmoid output layer
 ann.add(Dense(1, activation = 'sigmoid'))
 ann.compile(optimizer = 'adam', loss = 'binary_crossentropy')
+#use early stopping if validation loss stops improving
 ann.fit(X_train_scaled, y_train, epochs = 30, batch_size = 32, verbose = 1, validation_split = 0.1, 
         callbacks = [EarlyStopping(patience = 10, restore_best_weights = True, monitor = 'val_loss')])
 evaluate_ann("ANN", ann, X_train_scaled, y_train, X_test_scaled, y_test, "ANN", "Standard")
@@ -277,6 +315,7 @@ logistic_search.fit(X_train_raw, y_train)
 print("Best parameters logistic regression:", logistic_search.best_params_)
 best_logistic = logistic_search.best_estimator_
 evaluate_model("Tuned logistic regression with random undersampling", best_logistic, X_train_raw, y_train, X_test_raw, y_test, "Logistic Regression", "Tuned")
+#get the fitted logistic regression model from pipeline
 tuned_logistic_model = best_logistic.named_steps["model"]
 tuned_logistic_odds = odds_ratios(tuned_logistic_model, X.columns, "Tuned logistic regressiom with random undersampling ")
 
@@ -344,7 +383,8 @@ ann_search.fit(X_train_raw, y_train)
 print("Best ANN parameters:", ann_search.best_params_)
 best_ann = ann_search.best_estimator_
 evaluate_model("Tuned ANN with random undersampling", best_ann, X_train_raw, y_train, X_test_raw, y_test, "ANN", "Tuned")
-#tabpfn with random undersampling inside a pipeline but not tuned
+
+#tabpfn with random undersampling inside a pipeline without tuning
 tabpfn_pipeline = Pipeline([("imputer", SimpleImputer(strategy="median")),("rus", RandomUnderSampler(random_state=42)), ("model", TabPFNClassifier(random_state=42, ignore_pretraining_limits=True))])
 tabpfn_pipeline.fit(X_train_raw, y_train)
 evaluate_model("TabPFN with random undersampling pipeline", tabpfn_pipeline, X_train_raw, y_train, X_test_raw, y_test, "TabPFN", "RUS")
@@ -358,20 +398,24 @@ calibrated_rf = calibrate_and_evaluate_model("Tuned Random Forest with random un
 calibrated_tabpfn = calibrate_and_evaluate_model("TabPFN with random undersampling", tabpfn_pipeline, X_train_raw, y_train, X_test_raw, y_test)
 calibrated_ann = calibrate_and_evaluate_model("Tuned ANN with random undersampling", best_ann, X_train_raw, y_train, X_test_raw, y_test)
 
-#SHAP for tree models
+#prepare imputed test data needed for SHAP analysis
 X_test_cat_shap = pd.DataFrame(best_cat.named_steps["imputer"].transform(X_test_raw), columns=X_test_raw.columns, index=X_test_raw.index)
 X_test_rf_shap = pd.DataFrame(best_rf.named_steps["imputer"].transform(X_test_raw), columns=X_test_raw.columns, index=X_test_raw.index)
 X_test_xgb_shap = pd.DataFrame(best_xgb.named_steps["imputer"].transform(X_test_raw), columns=X_test_raw.columns, index=X_test_raw.index)
+#create shap plots for tuned tree based models
 shap_summary_plot(best_cat.named_steps["model"], X_test_cat_shap, "Tuned CatBoost with random undersampling")
 shap_summary_plot(best_rf.named_steps["model"], X_test_rf_shap, "Tuned Random Forest with random undersampling")
 shap_summary_plot(best_xgb.named_steps["model"],X_test_xgb_shap, "Tuned XGBoost with random undersampling")
-#results graph
+
+#save all model results to csv file
 results_df = pd.DataFrame(results)
 results_df.to_csv("model_results.csv", index = False)
+#only include standard, rus and tuned models in comparison graphs
 graph_results = results_df[results_df["Type"].isin(["Standard", "RUS", "Tuned"])].copy()
 graph_results["Graph name"] = (graph_results["Model"]+" - "+graph_results["Type"])
+#use different colours for each model type
 type_colours = {"Standard": "#0072B2","RUS": "#CD853F","Tuned": "#009E73"}
-#ROC AUC graph
+#ROC AUC graph across models
 roc_data = graph_results.sort_values("ROC-AUC", ascending=True)
 colours = roc_data["Type"].map(type_colours)
 fig, ax = plt.subplots(figsize=(9, 7))
@@ -383,7 +427,7 @@ ax.bar_label(bars, fmt="%.3f", padding=3)
 plt.tight_layout()
 plt.show()
 
-#recall graph
+#recall graph across models
 recall_data = graph_results.sort_values("Recall", ascending=True)
 colours = recall_data["Type"].map(type_colours)
 fig, ax = plt.subplots(figsize=(9, 7))

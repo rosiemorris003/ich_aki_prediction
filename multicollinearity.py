@@ -4,12 +4,14 @@ import matplotlib.pyplot as plt
 from sklearn.impute import SimpleImputer
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from statsmodels.tools.tools import add_constant
+#load final dataset from sqlite
 conn = sqlite3.connect(r"C:\Users\rosie\Documents\dissertation_start\dissertation_tables.db")
 df = pd.read_sql_query("SELECT * FROM final_dataset", conn)
 conn.close()
 #convert gender to numeric
 df["gender"] = df["gender"].map({"M": 1, "F": 0})
 X = df.drop(columns=["subject_id", "hadm_id", "stay_id", "AKI"])
+#only use numerical features for correlation and vif checks
 X_check = X.select_dtypes(include="number").copy()
 #correlation matrix
 correlation_matrix = X_check.corr()
@@ -23,7 +25,7 @@ plt.tight_layout()
 plt.savefig("correlation_after.png",dpi=300,bbox_inches="tight")
 plt.show()
 
-#find correlations of 0.8 or higher
+#find pairs of features with absolute correlation of 0.8 or higher
 strong = []
 for i in range(len(correlation_matrix.columns)):
     for j in range(i):
