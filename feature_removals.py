@@ -111,7 +111,6 @@ def evaluate_ann(name, model, X_train, y_train, X_test, y_test):
     print("Testing Brier Score:", brier_score_loss(y_test, y_test_prob))
     print(" ")
 
-
 #Logistic regression code
 logistic = LogisticRegression(max_iter = 1000)
 logistic.fit(X_train_scaled, y_train)
@@ -121,7 +120,6 @@ evaluate_model("Logistic regression", logistic, X_train_scaled, y_train, X_test_
 xgb = XGBClassifier(random_state = 42, eval_metric = 'logloss')
 xgb.fit(X_train, y_train)
 evaluate_model("XGBoost", xgb, X_train, y_train, X_test, y_test)
-
 
 #catboost
 cat = CatBoostClassifier(random_state = 42, verbose = 0)

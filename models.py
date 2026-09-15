@@ -376,7 +376,7 @@ def create_ann_model(optimizer="adam", activation="relu"):
 early_stopping = EarlyStopping(monitor="val_loss",patience=10,restore_best_weights=True)
 ann_pipeline = Pipeline([("imputer", SimpleImputer(strategy="median")), ("scaler", StandardScaler()), ("rus", RandomUnderSampler(random_state=42)),("model", KerasClassifier(model=create_ann_model, verbose=0, random_state=42, validation_split=0.1,callbacks = [early_stopping]))])
 #parameters to test
-ann_params = {"model__model__optimizer": ["adam", "sgd"], "model__model__activation": ["relu", "tanh"], "model__epochs": [50, 100], "model__batch_size": [16, 32]}
+ann_params = {"model__model__optimizer": ["adam", "sgd"], "model__model__activation": ["relu", "tanh"], "model__epochs": [30, 50, 100], "model__batch_size": [16, 32]}
 #random search for ANN
 ann_search = RandomizedSearchCV(estimator=ann_pipeline, param_distributions=ann_params, n_iter=16, cv=5, scoring="roc_auc", random_state=42, n_jobs=1)
 ann_search.fit(X_train_raw, y_train)
