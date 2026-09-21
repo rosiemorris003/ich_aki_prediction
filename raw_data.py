@@ -1,25 +1,26 @@
 import sqlite3
 import pandas as pd
 #connect to sqlite data base
-conn = sqlite3.connect(r'C:\Users\rosie\Documents\dissertation_start\dissertation_tables.db')
+db_path = 'dissertation_tables.db'
+conn = sqlite3.connect(db_path)
 #load the smaller mimic-iv files
-icd_codes = pd.read_csv(r'C:\Users\rosie\Documents\dissertation_start\d_icd_diagnoses.csv')
-diagnoses = pd.read_csv(r'C:\Users\rosie\Documents\dissertation_start\diagnoses_icd.csv')
-lab_items = pd.read_csv(r'C:\Users\rosie\Documents\dissertation_start\d_labitems.csv')
-chart_items = pd.read_csv(r'C:\Users\rosie\Documents\dissertation_start\d_items.csv')
+icd_codes = pd.read_csv('d_icd_diagnoses.csv')
+diagnoses = pd.read_csv('diagnoses_icd.csv')
+lab_items = pd.read_csv('d_labitems.csv')
+chart_items = pd.read_csv('d_items.csv')
 #load the icu stay information and only keep the columns needed for the project
-icu_stays = pd.read_csv(r'C:\Users\rosie\Documents\dissertation_start\icustays.csv.gz',compression ='gzip' )
+icu_stays = pd.read_csv('icustays.csv.gz',compression='gzip')
 icu_stays = icu_stays[['subject_id','hadm_id','stay_id','intime','los']]
 #convert icu admission time into date time format
 icu_stays['intime'] = pd.to_datetime(icu_stays['intime'])
 #save icu stay information into sqlite
 icu_stays.to_sql('icu_stays',conn,if_exists='replace',index=False)
 #item ids needed from the lab and chart event files
-lab_items_ids = [51081, 50912, 51265, 51222, 51221, 50971, 51301, 50983, 51279]
+lab_items_ids = [50912, 51265, 51222, 51221, 50971, 51301, 50983, 51279]
 chart_item_ids = [220045, 223761, 223762, 224640, 220179, 220180, 220739, 223900, 223901]
 #load the weight from inputevents
 columns_input = ['subject_id', 'hadm_id', 'stay_id', 'starttime', 'endtime', 'patientweight']
-input_events = pd.read_csv(r'C:\Users\rosie\Documents\dissertation_start\inputevents.csv.gz', compression = 'gzip', usecols = columns_input, chunksize = 100000,low_memory=False)
+input_events = pd.read_csv('inputevents.csv.gz', compression='gzip', usecols=columns_input, chunksize=100000,low_memory=False)
 for chunk in input_events:
     #make sure the main id and weight columns are numeric
     chunk['subject_id'] = pd.to_numeric(chunk['subject_id'], errors='coerce')
@@ -35,7 +36,7 @@ patients.to_sql('patients',conn, if_exists='replace',index=False)
 
 #load the chart events needed for the predictor variables
 columns_chart = ['subject_id','hadm_id','stay_id','itemid','charttime','valuenum','valueuom']
-chart_events = pd.read_csv(r'C:\Users\rosie\Documents\dissertation_start\chartevents.csv.gz',compression='gzip',usecols = columns_chart,chunksize = 100000,low_memory=False)
+chart_events = pd.read_csv('chartevents.csv.gz', compression='gzip', usecols=columns_chart,chunksize=100000, low_memory=False)
 for chunk in chart_events:
     #only keep clinical measurements needed
     chunk = chunk[chunk['itemid'].isin(chart_item_ids)]
