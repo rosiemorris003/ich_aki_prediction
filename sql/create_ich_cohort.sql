@@ -25,7 +25,7 @@ GROUP BY f.subject_id, f.hadm_id;
 CREATE TABLE ICH_Creatinine AS
 SELECT f.subject_id, f.hadm_id, f.stay_id, f.intime, l.itemid, l.charttime, l.valuenum, l.valueuom
 FROM ICH_First_ICU_Stay f  JOIN LabEvents l ON f.subject_id = l.subject_id AND f.hadm_id = l.hadm_id 
-WHERE l.itemid = 51081 OR l.itemid = 50912;
+WHERE l.itemid = 50912;
 
 --store aki labels and split into whether they had aki going into the icu
 CREATE TABLE ICH_AKI_label_all (

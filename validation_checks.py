@@ -1,6 +1,7 @@
 import sqlite3
 import pandas as pd
-conn = sqlite3.connect(r"C:\Users\rosie\Documents\dissertation_start\dissertation_tables.db")
+db_path = 'dissertation_tables.db'
+conn = sqlite3.connect(db_path)
 #check the total number of rows in the final dataset 
 final = pd.read_sql_query("SELECT COUNT(*) FROM Final_Dataset", conn)
 print("Final dataset rows", final.iloc[0]['COUNT(*)'])
@@ -14,9 +15,9 @@ aki = pd.read_sql_query("SELECT AKI, COUNT(*) FROM Final_Dataset GROUP BY AKI", 
 print(aki)
 
 #check there are no readings after 24 hours in the lab and chart events
-lab_24h = pd.read_sql_query("SELECT COUNT(*) FROM ICH_LabEvents_24h l JOIN ICH_FIRST_ICU_STAY i ON l.subject_id = i.subject_id AND l.hadm_id = i.hadm_id WHERE l.charttime >= datetime(i.intime, '+24hours')", conn)
+lab_24h = pd.read_sql_query("SELECT COUNT(*) FROM ICH_LabEvents_24h l JOIN ICH_FIRST_ICU_STAY i ON l.subject_id = i.subject_id AND l.hadm_id = i.hadm_id WHERE l.charttime >= datetime(i.intime, '+24 hours')", conn)
 print("Readings after the 24hours in labs: ",lab_24h.iloc[0]["COUNT(*)"])
-chart_24h = pd.read_sql_query("SELECT COUNT(*) FROM ICH_ChartEvents_24h c JOIN ICH_FIRST_ICU_STAY i on c.subject_id = i.subject_id AND c.hadm_id = i.hadm_id WHERE c.charttime >= datetime(i.intime,'+24hours')",conn)
+chart_24h = pd.read_sql_query("SELECT COUNT(*) FROM ICH_ChartEvents_24h c JOIN ICH_FIRST_ICU_STAY i on c.subject_id = i.subject_id AND c.hadm_id = i.hadm_id WHERE c.charttime >= datetime(i.intime,'+24 hours')",conn)
 print("Readings after the 24hours in chart events:", chart_24h.iloc[0]['COUNT(*)'])
 
 #check there are no readings before the icu admission in the lab or chart events
@@ -129,15 +130,15 @@ print("Validation AKI counts:")
 print(sample["AKI"].value_counts())
 stay_ids = sample["stay_id"].tolist()
 #get creatinine values for patients
-sample_creatinine = pd.read_sql_query("SELECT f.subject_id, f.hadm_id, f.stay_id, f.AKI, c.charttime, c.intime, c.valuenum, c.valueuom FROM Final_Dataset f JOIN ICH_Creatinine c ON f.subject_id = c.subject_id AND f.hadm_id = c.hadm_id WHERE c.itemid IN (51081, 50912) AND c.valuenum IS NOT NULL ORDER BY f.stay_id, c.charttime", conn)
+sample_creatinine = pd.read_sql_query("SELECT f.subject_id, f.hadm_id, f.stay_id, f.AKI, c.charttime, c.intime, c.valuenum, c.valueuom FROM Final_Dataset f JOIN ICH_Creatinine c ON f.subject_id = c.subject_id AND f.hadm_id = c.hadm_id WHERE c.itemid IN (50912) AND c.valuenum IS NOT NULL ORDER BY f.stay_id, c.charttime", conn)
 #work out how many hours after icu admission creatinine reading was
 sample_creatinine["charttime"] = pd.to_datetime(sample_creatinine["charttime"])
 sample_creatinine["intime"] = pd.to_datetime(sample_creatinine["intime"])
 sample_creatinine["hours_from_icu"] = (sample_creatinine["charttime"] - sample_creatinine["intime"]).dt.total_seconds()/3600
 sample_creatinine = sample_creatinine[sample_creatinine["stay_id"].isin(stay_ids)]
 
-#only keep readings after icu admission
-sample_creatinine = sample_creatinine[sample_creatinine["hours_from_icu"] >= 0]
+#only keep readings from up to seven days before icu admission 
+sample_creatinine = sample_creatinine[sample_creatinine["hours_from_icu"] >= - (7*24)]
 aki_check = []
 for stay_id in sample_creatinine["stay_id"].unique():
     patient = sample_creatinine[sample_creatinine["stay_id"] == stay_id].copy()
@@ -170,4 +171,4 @@ for stay_id in sample_creatinine["stay_id"].unique():
         check = "Potentially incorrect"
     aki_check.append({"stay_id": stay_id, "AKI_label": aki_label, "AKI_found": aki_found, "first_value": first_value, "second_value": second_value, "check": check })
 aki_check = pd.DataFrame(aki_check)
-print(aki_check)
+print(aki_check['Check'].value_counts())

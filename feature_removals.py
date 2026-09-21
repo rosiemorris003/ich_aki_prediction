@@ -24,7 +24,8 @@ from tensorflow.keras.layers import Dense
 from tensorflow.keras.callbacks import EarlyStopping
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, precision_score, recall_score, average_precision_score, confusion_matrix, brier_score_loss
 #load final dataset from SQLite database
-conn = sqlite3.connect(r"C:\Users\rosie\Documents\dissertation_start\dissertation_tables.db")
+db_path = 'dissertation_tables.db'
+conn = sqlite3.connect(db_path)
 df = pd.read_sql_query("SELECT * FROM final_dataset",conn)
 conn.close()
 #convert gender to binary values

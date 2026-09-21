@@ -1,5 +1,5 @@
 --extract lab events taken within the first 24 hours of icu admission
---only include patients with an aki label and non null lab values
+--only include patients in final aki labelled cohort
 CREATE TABLE ICH_LabEvents_24h AS 
 SELECT f.subject_id, f.hadm_id, f.stay_id, l.itemid, l.charttime, l.valuenum, l.valueuom 
 FROM ICH_First_ICU_Stay f 
@@ -8,7 +8,7 @@ JOIN LabEvents l ON f.subject_id = l.subject_id AND f.hadm_id = l.hadm_id
 WHERE l.charttime >= f.intime AND l.charttime < datetime(f.intime, '+24 hours') AND l.valuenum IS NOT NULL;
 
 --extract chart events taken within the first 24 hours of icu admission 
--- only include patients with aki label and non null chart values
+--only include patients in final aki labelled cohort
 CREATE TABLE ICH_ChartEvents_24h AS 
 SELECT f.subject_id, f.hadm_id, f.stay_id, c.itemid, c.charttime, c.valuenum, c.valueuom 
 FROM ICH_First_ICU_Stay f 

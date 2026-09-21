@@ -1,7 +1,8 @@
 import sqlite3
 import pandas as pd
 #connect to SQLite database and load creatinine data
-conn = sqlite3.connect(r'C:\Users\rosie\Documents\dissertation_start\dissertation_tables.db')
+db_path = 'dissertation_tables.db'
+conn = sqlite3.connect(db_path)
 creatinine = pd.read_sql_query("SELECT * FROM ICH_Creatinine",conn)
 #keep serum creatinine item used for aki definition
 creatinine = creatinine[creatinine['itemid'].isin([50912])]
@@ -10,7 +11,7 @@ creatinine['charttime'] = pd.to_datetime(creatinine['charttime'])
 creatinine['intime'] = pd.to_datetime(creatinine['intime'])
 #workout when each creatinine reading was taken relative to the ICU admission
 creatinine['hours_from_icu'] = (creatinine['charttime']-creatinine['intime']).dt.total_seconds() / 3600
-#only keep the readings from the 7 days before admission and onwards
+#only keep the readings from up to the 7 days before admission and onwards
 creatinine = creatinine[creatinine['hours_from_icu']>=-(7 * 24)].copy()
 #make sure each of the patients readings are in time order
 creatinine = creatinine.sort_values(['subject_id', 'hadm_id', 'charttime'])
@@ -27,7 +28,7 @@ def aki_finding(admission_data):
     #aki cannot be checked properly with fewer than two readings
     if len(admission_data)<2:
         return pd.Series({'AKI_first_24h':0,'AKI_after_24h':0})
-    #separate the readings from the first 24 hours and after that point
+    #separate the readings from before 24 hours and after that point
     first_24h = admission_data[admission_data['hours_from_icu']<=24]
     after_24h = admission_data[admission_data['hours_from_icu']>24]
     #check whether AKI has developed over the first 24 hours
@@ -72,7 +73,7 @@ aki_labels = (creatinine.groupby(['subject_id', 'hadm_id']).apply(aki_finding).r
 print(aki_labels[['AKI_first_24h', 'AKI_after_24h']].value_counts())
 #remove any patients who have already met the aki criteria in the first 24 hours
 aki_labels_main = aki_labels[aki_labels['AKI_first_24h'] == 0].copy()
-print(aki_labels_main.value_counts())
+print(aki_labels_main["AKI_after_24h"].value_counts())
 #save all labels so we can check the early aki cases if we need
 aki_labels.to_sql('ICH_AKI_label_all', conn, if_exists='replace', index=False)
 #use aki after 24 hours as the final outcome

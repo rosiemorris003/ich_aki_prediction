@@ -30,7 +30,8 @@ from scikeras.wrappers import KerasClassifier
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, precision_score, recall_score, average_precision_score, confusion_matrix, brier_score_loss
 from sklearn.calibration import CalibratedClassifierCV, calibration_curve
 #load final dataset from SQLite database
-conn = sqlite3.connect(r"C:\Users\rosie\Documents\dissertation_start\dissertation_tables.db")
+db_path = 'dissertation_tables.db'
+conn = sqlite3.connect(db_path)
 df = pd.read_sql_query("SELECT * FROM final_dataset",conn)
 conn.close()
 #convert gender to binary values
@@ -317,7 +318,7 @@ best_logistic = logistic_search.best_estimator_
 evaluate_model("Tuned logistic regression with random undersampling", best_logistic, X_train_raw, y_train, X_test_raw, y_test, "Logistic Regression", "Tuned")
 #get the fitted logistic regression model from pipeline
 tuned_logistic_model = best_logistic.named_steps["model"]
-tuned_logistic_odds = odds_ratios(tuned_logistic_model, X.columns, "Tuned logistic regressiom with random undersampling ")
+tuned_logistic_odds = odds_ratios(tuned_logistic_model, X.columns, "Tuned logistic regression with random undersampling ")
 
 #xgboost tuning
 xgb_pipeline = Pipeline([("imputer", SimpleImputer(strategy="median")),("rus", RandomUnderSampler(random_state=42)), ("model", XGBClassifier(random_state=42, eval_metric="logloss"))])
@@ -422,7 +423,7 @@ fig, ax = plt.subplots(figsize=(9, 7))
 bars = ax.barh(roc_data["Graph name"],roc_data["ROC-AUC"],color=colours)
 ax.set_xlabel("ROC-AUC")
 ax.set_title("ROC-AUC Across Models")
-ax.set_xlim(0, 0.75)
+ax.set_xlim(0.6, 0.8)
 ax.bar_label(bars, fmt="%.3f", padding=3)
 plt.tight_layout()
 plt.show()
@@ -434,7 +435,7 @@ fig, ax = plt.subplots(figsize=(9, 7))
 bars = ax.barh(recall_data["Graph name"],recall_data["Recall"], color=colours)
 ax.set_xlabel("Recall")
 ax.set_title("Recall Across Models")
-ax.set_xlim(0, 0.70)
+ax.set_xlim(0, 0.8)
 ax.bar_label(bars, fmt="%.3f", padding=3)
 plt.tight_layout()
 plt.show()
