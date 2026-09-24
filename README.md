@@ -17,7 +17,7 @@ The project followed a step by step process which started with the cohort creati
 The models were compared using accuracy, ROC-AUC, PR-AUC, F1 score, precision, recall and specificity. Brier scores and calibration curves were also used to check how reliable the probabilities were, as well as the bootstrap 95% confidence intervals being calculated for the ROC-AUC results. 
 
 ## Data access
-As the data set is restricted, anyone wanting to reproduce the analysis will need to obtain their own approves access to MIMIC-IV and follow the PhysioNet data use requirements. 
+As the data set is restricted, anyone wanting to reproduce the analysis will need to obtain their own approved access to MIMIC-IV and follow the PhysioNet data use requirements. 
 
 ## Repository structure
 The repository is organised into separate files for the main stages of the project.
@@ -27,7 +27,7 @@ raw_data.py - loads the required MIMIC-IV files into a local SQLite database, se
 validation_checks.py - checks the final dataset for issues such as missing values, duplicates and unrealistic values
 multicollinearity.py - carries out the correlation and VIF analysis used in feature reduction 
 models.py - contains the model training, random undersampling, hyperparameter tuning, evaluation and calibration 
-feature_removals.py - rerunes the seven standard models after selected predictors or groups of predictors are removed so their performance can be compared with the full feature set
+feature_removals.py - reruns the seven standard models after selected predictors or groups of predictors are removed so their performance can be compared with the full feature set
 .gitignore - prevents restricted data and unnecessary files from being uploaded to the repository
 
 ## How to run the project 
@@ -69,11 +69,11 @@ The models achieved moderate predictive performance, with no single model clearl
 The main findings were:
 - The ANN achieved the highest standard ROC-AUC of 0.736
 - Random undersampling generally improved recall but reduced specificity
-- The stronger models had substantially overallping 95% ROC-AUC confidence intervals 
+- The stronger models had substantially overlapping 95% ROC-AUC confidence intervals 
 - Minimum GCS was the most consistently important predictor across the feature interpretation and removal analyses. 
 The results suggest that there is useful predictive information within the first 24 hours of ICU admission but further validation would be needed before the models could be considered for clinical use. 
 
 ## Limitations
- The study used retrospective data from a single database, so the results may not generalise to other hospitals. AKI was identified using serum creatinine only, as urine output data was not considered relaible enough for the analysis. The models were also evaluated on an internal test and have not yet been externally validation. For these reasons, the models should be treated as research findings rather than tools that are ready for clinical use. 
+ The study used retrospective data from a single database, so the results may not generalise to other hospitals. AKI was identified using serum creatinine only, as urine output data was not considered reliable enough for the analysis. The models were also evaluated on an internal test and have not yet been externally validated. For these reasons, the models should be treated as research findings rather than tools that are ready for clinical use. 
 
  
